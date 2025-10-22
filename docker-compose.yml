@@ -26,6 +26,21 @@ services:
     depends_on:
       - postgres
 
+  catalogservice:
+    build:
+      context: ./src/Services.CatalogService
+      dockerfile: Dockerfile
+    image: elaris/catalogservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - Mongo__ConnectionString=mongodb://mongo:27017
+      - Mongo__Database=ElarisCatalogDb
+    ports:
+      - "5002:8080"
+    depends_on:
+      - mongo
+
   gateway:
     build:
       context: ./src
