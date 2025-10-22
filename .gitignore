@@ -1,0 +1,24 @@
+# .NET Core
+bin/
+obj/
+*.csproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Docker
+*.log
+*.dockerignore
+
+# Environment-specific files
+appsettings.*.json
+/src/Services.IdentityService/appsettings.Development.json
+
+# Other
+.vscode/
+.idea/
+*.swp
+*.swo
+
+.vs/
