@@ -19,11 +19,24 @@ services:
     image: elaris/identityservice:local
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=elaris_db;Username=elaris;Password=elaris_pwd
     ports:
-      - "5001:80"
+      - "5001:8080"
     depends_on:
       - postgres
+
+  gateway:
+    build:
+      context: ./src
+      dockerfile: ApiGateway/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    depends_on:
+      - identityservice
 
   mongo:
     image: mongo:6

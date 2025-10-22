@@ -7,6 +7,7 @@ using Services.IdentityService.Utils;
 using System.Text;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
@@ -56,6 +57,8 @@ builder.Services.AddScoped<JwtTokenGenerator>();
 
 builder.Services.AddSwaggerGen(c =>
 {
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Identity API", Version = "v1" });
+
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -80,7 +83,33 @@ builder.Services.AddSwaggerGen(c =>
             new string[] { }
         }
     });
+
+    c.AddServer(new OpenApiServer
+    {
+        Url = "/identity" // 👈 quan trọng
+    });
+
 });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+});
+
+// Cấu hình Serilog
+builder.Host.UseSerilog((ctx, lc) =>
+    lc.ReadFrom.Configuration(ctx.Configuration)
+      .Enrich.FromLogContext()
+      .WriteTo.Console());
+
+// Bật OpenTelemetry (trace/log)
+builder.Services.AddOpenTelemetry()
+    .WithTracing(b =>
+    {
+        b.AddAspNetCoreInstrumentation()
+         .AddHttpClientInstrumentation()
+         .AddConsoleExporter();
+    });
 
 
 builder.Services.AddControllers();
@@ -94,7 +123,13 @@ if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
     app.UseSwagger();
-    app.UseSwaggerUI();
+
+    app.UseSwaggerUI(c =>
+    {
+        // URL Swagger JSON thông qua gateway (qua /identity)
+        c.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity API V1");
+        c.RoutePrefix = "swagger";
+    });
 }
 
 using (var scope = app.Services.CreateScope())

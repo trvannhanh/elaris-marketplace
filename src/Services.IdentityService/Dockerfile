@@ -9,6 +9,6 @@ RUN dotnet publish Services.IdentityService.csproj -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
-ENV ASPNETCORE_URLS=http://+:80
+ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 80
 ENTRYPOINT ["dotnet", "Services.IdentityService.dll"]
