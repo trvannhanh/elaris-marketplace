@@ -1,6 +1,16 @@
 
+networks:
+  elaris_net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  mongodata:
 
 services:
+  # ========================
+  # DATABASE & INFRA
+  # ========================
   postgres:
     image: postgres:15
     environment:
@@ -11,7 +21,54 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elaris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      - elaris_net
+
+  # ========================
+  # SERVICES
+  # ========================
   identityservice:
     build:
       context: ./src/Services.IdentityService
@@ -24,12 +81,15 @@ services:
     ports:
       - "5001:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - elaris_net
 
   catalogservice:
     build:
-      context: ./src/Services.CatalogService
-      dockerfile: Dockerfile
+      context: ./src
+      dockerfile: Services.CatalogService/Dockerfile
     image: elaris/catalogservice:local
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -39,12 +99,37 @@ services:
     ports:
       - "5002:8080"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elaris_net
 
+  orderservice:
+    build:
+      context: ./src
+      dockerfile: Services.OrderService/Dockerfile
+    image: elaris/orderservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "5003:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elaris_net
+
+  # ========================
+  # API GATEWAY
+  # ========================
   gateway:
     build:
       context: ./src
       dockerfile: ApiGateway/Dockerfile
+    image: elaris/gateway:local
     ports:
       - "5000:8080"
     environment:
@@ -52,38 +137,22 @@ services:
       - ASPNETCORE_URLS=http://+:8080
     depends_on:
       - identityservice
+      - catalogservice
+      - orderservice
+    networks:
+      - elaris_net
 
-  mongo:
-    image: mongo:6
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodata:/data/db
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"
-      - "15672:15672" # management UI
-
-  redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
-
-  # Optional admin GUIs
+  # ========================
+  # ADMIN GUIs (DEV ONLY)
+  # ========================
   mongo-express:
     image: mongo-express
     environment:
       ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: 27017
     ports:
       - "8081:8081"
     depends_on:
       - mongo
-
-volumes:
-  pgdata:
-  mongodata:
+    networks:
+      - elaris_net

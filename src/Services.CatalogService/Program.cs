@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using MassTransit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using Services.CatalogService.Data;
 using Services.CatalogService.Models;
 using System.Text;
+using BuildingBlocks.Contracts.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +75,18 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
 });
 
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("rabbitmq", "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -101,6 +115,26 @@ app.MapPut("/api/products/{id}", async (MongoContext db, string id, Product upda
 {
     var result = await db.Products.ReplaceOneAsync(x => x.Id == id, updated);
     return result.ModifiedCount > 0 ? Results.Ok(updated) : Results.NotFound();
+}).RequireAuthorization("AdminOnly");
+
+app.MapPatch("/api/products/{id}/price", async (string id, decimal newPrice, MongoContext db, IPublishEndpoint publisher) =>
+{
+    var product = await db.Products.Find(p => p.Id == id && !p.IsDeleted).FirstOrDefaultAsync();
+    if (product == null) return Results.NotFound();
+
+    var old = product.Price;
+    var update = Builders<Product>.Update.Set(p => p.Price, newPrice);
+    var res = await db.Products.UpdateOneAsync(p => p.Id == id, update);
+
+    if (res.ModifiedCount > 0)
+    {
+        // publish event
+        var ev = new ProductPriceUpdatedEvent(id, old, newPrice, DateTime.UtcNow);
+        await publisher.Publish(ev);
+        return Results.Ok(new { productId = id, oldPrice = old, newPrice });
+    }
+
+    return Results.BadRequest();
 }).RequireAuthorization("AdminOnly");
 
 app.MapDelete("/api/products/{id}", async (MongoContext db, string id) =>

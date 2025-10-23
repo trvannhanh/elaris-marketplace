@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services.OrderService", "Se
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "ApiGateway\ApiGateway.csproj", "{BD7B94C8-EBF3-4686-8453-E07EA2668556}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "BuildingBlocks", "BuildingBlocks", "{BF468880-13E4-4A48-A6CA-CCCCC78406A9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuildingBlocks.Contracts", "BuildingBlocks\Contracts\BuildingBlocks.Contracts.csproj", "{4533C59C-CC50-4663-9502-543C7704B1DF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +40,12 @@ Global
 		{BD7B94C8-EBF3-4686-8453-E07EA2668556}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD7B94C8-EBF3-4686-8453-E07EA2668556}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD7B94C8-EBF3-4686-8453-E07EA2668556}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4533C59C-CC50-4663-9502-543C7704B1DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4533C59C-CC50-4663-9502-543C7704B1DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4533C59C-CC50-4663-9502-543C7704B1DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4533C59C-CC50-4663-9502-543C7704B1DF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4533C59C-CC50-4663-9502-543C7704B1DF} = {BF468880-13E4-4A48-A6CA-CCCCC78406A9}
 	EndGlobalSection
 EndGlobal
