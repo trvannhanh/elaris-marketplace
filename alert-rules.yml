@@ -1,0 +1,11 @@
+groups:
+  - name: elaris-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_server_requests_failed_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate in {{ $labels.service }}"
+          description: "More than 5% of requests are failing for {{ $labels.service }}"

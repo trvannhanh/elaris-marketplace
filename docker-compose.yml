@@ -3,10 +3,6 @@ networks:
   elaris_net:
     driver: bridge
 
-volumes:
-  pgdata:
-  mongodata:
-
 services:
   # ========================
   # DATABASE & INFRA
@@ -156,3 +152,74 @@ services:
       - mongo
     networks:
       - elaris_net
+
+  # ========================
+  # OBSERVABILITY STACK
+  # ========================
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.107.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus metrics
+    depends_on:
+      - tempo
+      - prometheus
+    networks:
+      - elaris_net
+
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - ./tempo-data:/tmp/tempo
+    ports:
+      - "3200:3200"   # HTTP API
+    networks:
+      - elaris_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - elaris_net
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-provisioning/:/etc/grafana/provisioning/
+    ports:
+      - "3000:3000"
+    depends_on:
+      - tempo
+      - prometheus
+    networks:
+      - elaris_net
+
+# ========================
+# VOLUMES
+# ========================
+volumes:
+  pgdata:
+  mongodata:
+  tempo-data:
+  prometheus-data:
+  grafana-data:

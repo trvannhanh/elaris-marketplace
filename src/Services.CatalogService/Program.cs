@@ -7,6 +7,10 @@ using Services.CatalogService.Data;
 using Services.CatalogService.Models;
 using System.Text;
 using BuildingBlocks.Contracts.Events;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +79,31 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
 });
 
+// Resource: Metadata cho service (hiển thị trong Jaeger/Tempo)
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService(serviceName: builder.Environment.ApplicationName, serviceVersion: "1.0.0"))  // Thay "catalogservice" hoặc "orderservice"
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()  // Trace HTTP requests
+        .AddHttpClientInstrumentation()  // Trace outgoing HTTP
+        //.AddEntityFrameworkCoreInstrumentation()  // Trace DB (EF Core)
+        .AddSource("MassTransit")  // Built-in MassTransit trace
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri("http://otel-collector:4317");  // OTLP/gRPC cho Collector (sẽ setup sau)
+            options.Protocol = OtlpExportProtocol.Grpc;  // Hoặc Http2
+        }))
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter("MassTransit")  // MassTransit metrics (queue length, message count)
+        .AddPrometheusExporter()  // Export sang Prometheus scrape endpoint /metrics
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri("http://otel-collector:4318");
+        }));
+
+
 builder.Services.AddMassTransit(x =>
 {
     x.UsingRabbitMq((context, cfg) =>
@@ -88,6 +117,11 @@ builder.Services.AddMassTransit(x =>
 });
 
 var app = builder.Build();
+
+// Endpoint cho Prometheus scrape metrics
+app.UseOpenTelemetryPrometheusScrapingEndpoint();  // /metrics
+
+app.MapHealthChecks("/health");
 
 if (app.Environment.IsDevelopment())
 {
