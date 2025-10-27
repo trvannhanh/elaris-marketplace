@@ -31,7 +31,8 @@ public static class OrderEndpoints
             await publisher.Publish(new OrderCreatedEvent(
                 order.Id,
                 order.ProductId,
-                order.TotalPrice
+                order.TotalPrice,
+                order.CreatedAt
             ));
             return Results.Created($"/api/orders/{order.Id}", order);
         });

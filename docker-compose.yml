@@ -138,6 +138,22 @@ services:
         condition: service_healthy
     networks:
       - elaris_net
+      
+  paymentservice:
+    build:
+      context: ./src
+      dockerfile: Services.PaymentService/Dockerfile
+    image: elaris/paymentservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "5004:8080"
+    depends_on:
+      - rabbitmq
+      - otel-collector
+    networks:
+      - elaris_net
 
   # ========================
   # API GATEWAY
