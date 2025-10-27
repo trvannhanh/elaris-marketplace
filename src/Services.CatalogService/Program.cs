@@ -11,6 +11,8 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Exporter;
+using Serilog;
+using Serilog.Enrichers.Span;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,6 +116,15 @@ builder.Services.AddMassTransit(x =>
             h.Password("guest");
         });
     });
+});
+
+builder.Host.UseSerilog((ctx, lc) =>
+{
+    lc.ReadFrom.Configuration(ctx.Configuration)
+      .Enrich.FromLogContext()
+      .Enrich.WithSpan() // 👈 Lấy trace/span id từ OpenTelemetry context
+      .WriteTo.Console(outputTemplate:
+          "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} (TraceId={TraceId}, SpanId={SpanId}){NewLine}{Exception}");
 });
 
 var app = builder.Build();

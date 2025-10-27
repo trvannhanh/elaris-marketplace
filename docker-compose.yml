@@ -25,6 +25,24 @@ services:
       timeout: 5s
       retries: 5
 
+  ordersql:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: elaris
+      POSTGRES_PASSWORD: elaris_pwd
+      POSTGRES_DB: elaris_orderdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - ordersqldata:/var/lib/postgresql/data
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elaris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mongo:
     image: mongo:6
     ports:
@@ -110,9 +128,12 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=ordersql;Port=5432;Database=elaris_orderdb;Username=elaris;Password=elaris_pwd
     ports:
       - "5003:8080"
     depends_on:
+      ordersql:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
@@ -223,3 +244,4 @@ volumes:
   tempo-data:
   prometheus-data:
   grafana-data:
+  ordersqldata:
