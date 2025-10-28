@@ -1,7 +1,9 @@
-﻿using MassTransit;
-using BuildingBlocks.Contracts.Events;
+﻿using BuildingBlocks.Contracts.Events;
+using MassTransit;
+using Microsoft.Extensions.Logging;
 
-namespace Services.OrderService.Consumers;
+
+namespace Services.OrderService.Infrastructure.Messaging.Consumers;
 
 public class ProductPriceUpdatedConsumer : IConsumer<ProductPriceUpdatedEvent>
 {

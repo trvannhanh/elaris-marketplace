@@ -123,7 +123,7 @@ services:
   orderservice:
     build:
       context: ./src
-      dockerfile: Services.OrderService/Dockerfile
+      dockerfile: Services.OrderService/Services.OrderService.API/Dockerfile
     image: elaris/orderservice:local
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
