@@ -2,7 +2,7 @@ using MassTransit;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Services.PaymentService.Consumers;
+using Services.InventoryService.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +13,7 @@ builder.Services.AddSwaggerGen();
 // MassTransit
 builder.Services.AddMassTransit(x =>
 {
-    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("payment", false));
-
+    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("inventory", false));
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -33,7 +32,7 @@ builder.Services.AddMassTransit(x =>
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource =>
-        resource.AddService("Services.PaymentService", serviceVersion: "1.0.0"))
+        resource.AddService("Services.InventoryService", serviceVersion: "1.0.0"))
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
@@ -55,7 +54,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("/payments", () => "PaymentService running");
+app.MapGet("/inventory", () => "InventoryService running");
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
 app.Run();

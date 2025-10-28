@@ -155,6 +155,22 @@ services:
     networks:
       - elaris_net
 
+  inventoryservice:
+    build:
+      context: ./src
+      dockerfile: Services.InventoryService/Dockerfile
+    image: elaris/inventoryservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "5005:8080"
+    depends_on:
+      - rabbitmq
+      - otel-collector
+    networks:
+      - elaris_net
+
   # ========================
   # API GATEWAY
   # ========================

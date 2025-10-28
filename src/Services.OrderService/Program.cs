@@ -18,6 +18,7 @@ var conn = builder.Configuration.GetConnectionString("DefaultConnection")
 builder.Services.AddDbContext<OrderDbContext>(opt =>
     opt.UseNpgsql(conn, npgsql => npgsql.EnableRetryOnFailure()));
 
+
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
@@ -85,7 +86,6 @@ builder.Services.AddMassTransit(x =>
         o.QueryDelay = TimeSpan.FromSeconds(10);
         o.DuplicateDetectionWindow = TimeSpan.FromMinutes(1);
         o.UsePostgres();
-        //o.UseBusOutbox();
     });
 
     x.UsingRabbitMq((context, cfg) =>
