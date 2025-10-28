@@ -1,4 +1,5 @@
-﻿using Services.OrderService.Application.Interfaces;
+﻿using Microsoft.EntityFrameworkCore;
+using Services.OrderService.Application.Interfaces;
 using Services.OrderService.Domain.Entities;
 using Services.OrderService.Infrastructure.Persistence;
 using System;
@@ -23,6 +24,16 @@ namespace Services.OrderService.Infrastructure.Repositories
             _db.Orders.Add(order);
             await _db.SaveChangesAsync(cancellationToken);
             return order;
+        }
+
+        public async Task<IEnumerable<Order>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return await _db.Orders.ToListAsync(cancellationToken);
+        }
+
+        public async Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return await _db.Orders.FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
         }
     }
 }

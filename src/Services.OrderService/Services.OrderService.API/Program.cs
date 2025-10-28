@@ -67,26 +67,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Endpoint
-app.MapPost("/orders", async (OrderInput input, OrderDbContext db, IPublishEndpoint publisher) =>
-{
-    var order = new Services.OrderService.Domain.Entities.Order
-    {
-        Id = Guid.NewGuid(),
-        ProductId = input.ProductId,
-        Quantity = input.Quantity,
-        TotalPrice = input.TotalPrice,
-        CreatedAt = input.CreatedAt
-    };
-
-    db.Orders.Add(order);
-    await db.SaveChangesAsync();
-
-    await publisher.Publish(new OrderCreatedEvent(order.Id, order.ProductId, order.TotalPrice, order.CreatedAt));
-
-    return Results.Created($"/orders/{order.Id}", order);
-});
-
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<OrderDbContext>();

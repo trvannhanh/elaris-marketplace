@@ -5,6 +5,7 @@ namespace Services.OrderService.Application.Interfaces
     public interface IOrderRepository
     {
         Task<Order> AddAsync(Order order, CancellationToken cancellationToken);
-        //Task SaveChangesAsync();
+        Task<IEnumerable<Order>> GetAllAsync(CancellationToken cancellationToken = default);
+        Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     }
 }
