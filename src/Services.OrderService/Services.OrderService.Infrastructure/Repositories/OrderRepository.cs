@@ -11,21 +11,18 @@ namespace Services.OrderService.Infrastructure.Repositories
 {
     public class OrderRepository : IOrderRepository
     {
-        private readonly OrderDbContext _dbContext;
+        private readonly OrderDbContext _db;
 
-        public OrderRepository(OrderDbContext dbContext)
+        public OrderRepository(OrderDbContext db)
         {
-            _dbContext = dbContext;
+            _db = db;
         }
 
-        public async Task AddAsync(Order order)
+        public async Task<Order> AddAsync(Order order, CancellationToken cancellationToken)
         {
-            await _dbContext.Orders.AddAsync(order);
-        }
-
-        public async Task SaveChangesAsync()
-        {
-            await _dbContext.SaveChangesAsync();
+            _db.Orders.Add(order);
+            await _db.SaveChangesAsync(cancellationToken);
+            return order;
         }
     }
 }

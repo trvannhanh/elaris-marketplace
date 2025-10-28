@@ -4,11 +4,14 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using BuildingBlocks.Contracts.Events;
 using MassTransit;
-
 using Services.OrderService.Services.OrderService.Application.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Services.OrderService.Infrastructure.Persistence;
 using Services.OrderService.Infrastructure.Extensions;
+using MediatR;
+using FluentValidation;
+using Services.OrderService.Application.Common.Behaviors;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,8 +36,23 @@ builder.Services.AddOpenTelemetry()
         .AddMeter("MassTransit")
         .AddPrometheusExporter());
 
+builder.Services.AddControllers();
+
+
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(Services.OrderService.Application.AssemblyReference).Assembly));
+
+// FluentValidation
+builder.Services.AddValidatorsFromAssembly(
+    typeof(Services.OrderService.Application.AssemblyReference).Assembly,
+    includeInternalTypes: true
+);
+
+builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Order API", Version = "v1" });
@@ -74,6 +92,11 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
     context.Database.Migrate();
 }
+
+app.MapControllers();
+app.UseSwagger();
+app.UseSwaggerUI();
+
 
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 app.Run();

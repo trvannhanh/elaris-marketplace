@@ -4,7 +4,7 @@ namespace Services.OrderService.Application.Interfaces
 {
     public interface IOrderRepository
     {
-        Task AddAsync(Order order);
-        Task SaveChangesAsync();
+        Task<Order> AddAsync(Order order, CancellationToken cancellationToken);
+        //Task SaveChangesAsync();
     }
 }
