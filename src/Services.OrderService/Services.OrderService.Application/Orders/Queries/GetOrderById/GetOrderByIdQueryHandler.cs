@@ -1,5 +1,6 @@
 ﻿using MapsterMapper;
 using MediatR;
+using Services.OrderService.Application.Common.Exceptions;
 using Services.OrderService.Application.Interfaces;
 using Services.OrderService.Application.Orders.DTOs;
 
@@ -22,7 +23,7 @@ namespace Services.OrderService.Application.Orders.Queries.GetOrderById
             var order = await _repo.GetByIdAsync(request.Id, cancellationToken);
 
             if (order == null)
-                return null;
+                throw new NotFoundException($"Order with Id = {request.Id} not found");
 
             return _mapper.Map<OrderResponse>(order);
         }

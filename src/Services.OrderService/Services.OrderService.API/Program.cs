@@ -1,4 +1,4 @@
-using Microsoft.OpenApi.Models;
+﻿using Microsoft.OpenApi.Models;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -11,6 +11,7 @@ using Services.OrderService.Application.Common.Behaviors;
 using Mapster;
 using Services.OrderService.Application.Common.Mappings;
 using MapsterMapper;
+using Services.OrderService.API.Middleware;
 
 
 
@@ -72,6 +73,9 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+app.AddGlobalExceptionHandler(logger);
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -85,9 +89,6 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
-app.UseSwagger();
-app.UseSwaggerUI();
-
 
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 app.Run();
