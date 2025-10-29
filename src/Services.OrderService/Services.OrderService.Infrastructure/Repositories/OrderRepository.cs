@@ -35,5 +35,14 @@ namespace Services.OrderService.Infrastructure.Repositories
         {
             return await _db.Orders.FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
         }
+
+        public IQueryable<Order> Query() => _db.Orders.AsQueryable();
+
+        public async Task<int> CountAsync(IQueryable<Order> query, CancellationToken ct)
+            => await query.CountAsync(ct);
+
+        public async Task<List<Order>> PaginateAsync(
+            IQueryable<Order> query, int page, int pageSize, CancellationToken ct)
+            => await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
     }
 }

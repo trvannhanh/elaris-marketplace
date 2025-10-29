@@ -76,11 +76,9 @@ var app = builder.Build();
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 app.AddGlobalExceptionHandler(logger);
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -89,6 +87,5 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
-
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 app.Run();
