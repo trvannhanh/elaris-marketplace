@@ -2,15 +2,17 @@ using Microsoft.OpenApi.Models;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using BuildingBlocks.Contracts.Events;
-using MassTransit;
-using Services.OrderService.Services.OrderService.Application.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Services.OrderService.Infrastructure.Persistence;
 using Services.OrderService.Infrastructure.Extensions;
 using MediatR;
 using FluentValidation;
 using Services.OrderService.Application.Common.Behaviors;
+using Mapster;
+using Services.OrderService.Application.Common.Mappings;
+using MapsterMapper;
+
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,6 +41,7 @@ builder.Services.AddOpenTelemetry()
 builder.Services.AddControllers();
 
 
+//MediaR
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Services.OrderService.Application.AssemblyReference).Assembly));
 
@@ -49,6 +52,14 @@ builder.Services.AddValidatorsFromAssembly(
 );
 
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+
+// Mapster
+var config = TypeAdapterConfig.GlobalSettings;
+config.Scan(typeof(OrderMappingConfig).Assembly);
+
+builder.Services.AddSingleton(config);
+builder.Services.AddScoped<IMapper, ServiceMapper>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

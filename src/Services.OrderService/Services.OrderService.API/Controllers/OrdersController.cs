@@ -28,7 +28,7 @@ namespace Services.OrderService.API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var result = await _mediator.Send(new GetAllOrdersQuery());
-            return Ok(result);
+            return Ok(result); 
         }
 
         [HttpGet("{id:guid}")]

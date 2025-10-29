@@ -1,21 +1,30 @@
-﻿using MediatR;
+﻿using MapsterMapper;
+using MediatR;
 using Services.OrderService.Application.Interfaces;
-using Services.OrderService.Domain.Entities;
+using Services.OrderService.Application.Orders.DTOs;
 
 namespace Services.OrderService.Application.Orders.Queries.GetOrderById
 {
-    public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order?>
+    public class GetOrderByIdQueryHandler
+    : IRequestHandler<GetOrderByIdQuery, OrderResponse?>
     {
         private readonly IOrderRepository _repo;
+        private readonly IMapper _mapper;
 
-        public GetOrderByIdQueryHandler(IOrderRepository repo)
+        public GetOrderByIdQueryHandler(IOrderRepository repo, IMapper mapper)
         {
             _repo = repo;
+            _mapper = mapper;
         }
 
-        public async Task<Order?> Handle(GetOrderByIdQuery request, CancellationToken cancellationToken)
+        public async Task<OrderResponse?> Handle(GetOrderByIdQuery request, CancellationToken cancellationToken)
         {
-            return await _repo.GetByIdAsync(request.Id, cancellationToken);
+            var order = await _repo.GetByIdAsync(request.Id, cancellationToken);
+
+            if (order == null)
+                return null;
+
+            return _mapper.Map<OrderResponse>(order);
         }
     }
 }
