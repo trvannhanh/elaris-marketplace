@@ -43,6 +43,24 @@ services:
       timeout: 5s
       retries: 5
 
+  inventorysql:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: elaris
+      POSTGRES_PASSWORD: elaris_pwd
+      POSTGRES_DB: elaris_inventorydb
+    ports:
+      - "5434:5432"
+    volumes:
+      - inventorysqldata:/var/lib/postgresql/data
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elaris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mongo:
     image: mongo:6
     ports:
@@ -158,16 +176,19 @@ services:
   inventoryservice:
     build:
       context: ./src
-      dockerfile: Services.InventoryService/Dockerfile
+      dockerfile: Services.InventoryService/Services.InventoryService.API/Dockerfile
     image: elaris/inventoryservice:local
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=inventorysql;Port=5432;Database=elaris_inventorydb;Username=elaris;Password=elaris_pwd
     ports:
       - "5005:8080"
     depends_on:
-      - rabbitmq
-      - otel-collector
+      inventorysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - elaris_net
 
@@ -277,3 +298,4 @@ volumes:
   prometheus-data:
   grafana-data:
   ordersqldata:
+  inventorysqldata:

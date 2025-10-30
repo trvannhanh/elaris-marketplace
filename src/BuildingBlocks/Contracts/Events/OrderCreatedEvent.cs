@@ -7,6 +7,7 @@ namespace BuildingBlocks.Contracts.Events
         string ProductId,
         decimal TotalPrice,
         DateTime CreatedAt,
+        int Quantity,
         string Status
     );
 }

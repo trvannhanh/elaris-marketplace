@@ -38,6 +38,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 order.ProductId,
                 order.TotalPrice,
                 order.CreatedAt,
+                order.Quantity,
                 order.Status.ToString()
             ), cancellationToken);
 

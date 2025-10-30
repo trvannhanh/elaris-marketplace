@@ -21,15 +21,16 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.13.1" />
     <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.13.1-beta.1" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.13.1" />
-    <PackageReference Include="SharpAbp.Abp.OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="3.5.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.13.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.13.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\Contracts\BuildingBlocks.Contracts.csproj" />
-    <ProjectReference Include="..\Services.OrderService.Application\Services.OrderService.Application.csproj" />
-    <ProjectReference Include="..\Services.OrderService.Domain\Services.OrderService.Domain.csproj" />
-    <ProjectReference Include="..\Services.OrderService.Infrastructure\Services.OrderService.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Services.OrderService\Services.OrderService.Infrastructure\Services.OrderService.Infrastructure.csproj" />
+    <ProjectReference Include="..\Services.InventoryService.Application\Services.InventoryService.Application.csproj" />
+    <ProjectReference Include="..\Services.InventoryService.Infrastructure\Services.InventoryService.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
