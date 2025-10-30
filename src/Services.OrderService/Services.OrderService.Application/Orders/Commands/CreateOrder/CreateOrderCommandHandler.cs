@@ -9,12 +9,13 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
     public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Order>
     {
         private readonly IOrderRepository _orderRepository;
-        private readonly IPublishEndpoint _publisher;
+        private readonly IEventPublisher _eventPublisher;
 
-        public CreateOrderCommandHandler(IOrderRepository orderRepository, IPublishEndpoint publisher)
+
+        public CreateOrderCommandHandler(IOrderRepository orderRepository, IEventPublisher eventPublisher)
         {
             _orderRepository = orderRepository;
-            _publisher = publisher;
+            _eventPublisher = eventPublisher;
         }
 
         public async Task<Order> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -25,12 +26,22 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 ProductId = request.ProductId,
                 Quantity = request.Quantity,
                 TotalPrice = request.TotalPrice,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Status = OrderStatus.Pending
             };
 
             await _orderRepository.AddAsync(order, cancellationToken);
 
-            await _publisher.Publish(new OrderCreatedEvent(order.Id, order.ProductId, order.TotalPrice, order.CreatedAt), cancellationToken);
+            // Publish event → sẽ được lưu vào Outbox table nhờ MassTransit
+            await _eventPublisher.PublishOrderCreatedEvent(new OrderCreatedEvent(
+                order.Id,
+                order.ProductId,
+                order.TotalPrice,
+                order.CreatedAt,
+                order.Status.ToString()
+            ), cancellationToken);
+
+            await _orderRepository.SaveChangesAsync(cancellationToken);
 
             return order;
         }

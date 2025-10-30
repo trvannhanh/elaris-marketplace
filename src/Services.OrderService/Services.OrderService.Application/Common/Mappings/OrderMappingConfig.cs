@@ -8,7 +8,7 @@ namespace Services.OrderService.Application.Common.Mappings
     {
         public void Register(TypeAdapterConfig config)
         {
-            config.NewConfig<Order, OrderResponse>();
+            config.NewConfig<Order, OrderResponse>().Map(dest => dest.Status, src => src.Status.ToString());
         }
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Services.OrderService.Application.Interfaces;
 using Services.OrderService.Infrastructure.Persistence;
+using Services.OrderService.Infrastructure.Publishers;
 using Services.OrderService.Infrastructure.Repositories;
 
 namespace Services.OrderService.Infrastructure.Extensions
@@ -15,15 +16,21 @@ namespace Services.OrderService.Infrastructure.Extensions
                 opt.UseNpgsql(conn, npgsql => npgsql.EnableRetryOnFailure()));
 
             services.AddScoped<IOrderRepository, OrderRepository>();
+            services.AddScoped<IEventPublisher, EventPublisher>();
 
             services.AddMassTransit(x =>
             {
                 x.SetKebabCaseEndpointNameFormatter();
+
+                x.AddConsumers(typeof(DependencyInjection).Assembly);
+
                 x.AddEntityFrameworkOutbox<OrderDbContext>(o =>
-                {
+                {  
+                    o.UsePostgres();
                     o.QueryDelay = TimeSpan.FromSeconds(10);
                     o.DuplicateDetectionWindow = TimeSpan.FromMinutes(1);
-                    o.UsePostgres();
+                    
+                    o.UseBusOutbox();
                 });
 
                 x.UsingRabbitMq((context, cfg) =>

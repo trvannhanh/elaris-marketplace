@@ -2,11 +2,7 @@
 using Services.OrderService.Application.Interfaces;
 using Services.OrderService.Domain.Entities;
 using Services.OrderService.Infrastructure.Persistence;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace Services.OrderService.Infrastructure.Repositories
 {
@@ -44,5 +40,10 @@ namespace Services.OrderService.Infrastructure.Repositories
         public async Task<List<Order>> PaginateAsync(
             IQueryable<Order> query, int page, int pageSize, CancellationToken ct)
             => await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+
+        public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
+        {
+            return await _db.SaveChangesAsync(cancellationToken);
+        }
     }
 }

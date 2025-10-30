@@ -12,6 +12,7 @@ using Mapster;
 using Services.OrderService.Application.Common.Mappings;
 using MapsterMapper;
 using Services.OrderService.API.Middleware;
+using MassTransit;
 
 
 
@@ -70,6 +71,9 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Order API", Version = "v1" });
     c.AddServer(new OpenApiServer { Url = "/order" });
 });
+
+// MassTransit
+builder.Services.AddMassTransitHostedService(true);
 
 var app = builder.Build();
 

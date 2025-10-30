@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Services.OrderService.Application.Orders.Commands.CreateOrder;
 using Services.OrderService.Application.Orders.GetOrdersWithFilters;
-using Services.OrderService.Application.Orders.Queries.GetAllOrders;
 using Services.OrderService.Application.Orders.Queries.GetOrderById;
 
 namespace Services.OrderService.API.Controllers
@@ -23,13 +22,6 @@ namespace Services.OrderService.API.Controllers
         {
             var result = await _mediator.Send(command);
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
-        }
-
-        [HttpGet("all")]
-        public async Task<IActionResult> GetAll()
-        {
-            var result = await _mediator.Send(new GetAllOrdersQuery());
-            return Ok(result); 
         }
 
         [HttpGet("{id:guid}")]
