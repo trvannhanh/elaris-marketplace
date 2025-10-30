@@ -8,5 +8,10 @@ namespace Services.InventoryService.Infrastructure.Persistence
         public InventoryDbContext(DbContextOptions<InventoryDbContext> options) : base(options) { }
 
         public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+        }
     }
 }

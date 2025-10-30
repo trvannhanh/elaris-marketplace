@@ -6,6 +6,9 @@ using Services.InventoryService.Infrastructure.Extensions;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
+using Mapster;
+using MapsterMapper;
+using Services.InventoryService.Application.Common.Mappings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,10 +34,10 @@ builder.Services.AddMediatR(cfg =>
 //builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 // Mapster
-//var config = TypeAdapterConfig.GlobalSettings;
-//config.Scan(typeof(InventoryMappingConfig).Assembly);
-//builder.Services.AddSingleton(config);
-//builder.Services.AddScoped<IMapper, ServiceMapper>();
+var config = TypeAdapterConfig.GlobalSettings;
+config.Scan(typeof(InventoryMappingConfig).Assembly);
+builder.Services.AddSingleton(config);
+builder.Services.AddScoped<IMapper, ServiceMapper>();
 
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()

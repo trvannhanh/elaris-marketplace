@@ -18,6 +18,7 @@ namespace Services.InventoryService.Infrastructure.Extensions
             services.AddDbContext<InventoryDbContext>(options =>
                 options.UseNpgsql(conn, npgsql => npgsql.EnableRetryOnFailure()));
 
+
             services.AddScoped<IInventoryRepository, InventoryRepository>();
 
             services.AddMassTransit(x =>
