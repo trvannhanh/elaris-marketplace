@@ -15,11 +15,10 @@ namespace Services.OrderService.Infrastructure.Repositories
             _db = db;
         }
 
-        public async Task<Order> AddAsync(Order order, CancellationToken cancellationToken)
+        public Task<Order> AddAsync(Order order, CancellationToken cancellationToken)
         {
             _db.Orders.Add(order);
-            await _db.SaveChangesAsync(cancellationToken);
-            return order;
+            return Task.FromResult(order);
         }
 
         public async Task<IEnumerable<Order>> GetAllAsync(CancellationToken cancellationToken = default)

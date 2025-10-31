@@ -18,6 +18,12 @@ namespace Services.InventoryService.Infrastructure.Repositories
         public Task UpdateStockAsync(InventoryItem item, CancellationToken ct)
             => Task.CompletedTask; // EF track rồi
 
+        public Task<InventoryItem> AddAsync(InventoryItem inventoryItem, CancellationToken cancellationToken )
+        {
+            _db.InventoryItems.Add(inventoryItem);
+            return Task.FromResult(inventoryItem);
+        }
+
         public Task SaveChangesAsync(CancellationToken ct)
             => _db.SaveChangesAsync(ct);
     }

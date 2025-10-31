@@ -108,6 +108,8 @@ builder.Services.AddOpenTelemetry()
 
 builder.Services.AddMassTransit(x =>
 {
+    x.AddConsumers(typeof(Program).Assembly); // Nếu sau này có consumer ở Catalog
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host("rabbitmq", "/", h =>
@@ -115,6 +117,8 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
+
+        cfg.ConfigureEndpoints(context);
     });
 });
 
@@ -150,9 +154,16 @@ app.MapGet("/api/products", async (MongoContext db) =>
     return Results.Ok(products);
 });
 
-app.MapPost("/api/products", async (MongoContext db, Product p) =>
+app.MapPost("/api/products", async (MongoContext db, Product p, IPublishEndpoint publisher) =>
 {
     await db.Products.InsertOneAsync(p);
+    await publisher.Publish(new ProductCreatedEvent(
+        p.Id!,
+        p.Name,
+        p.Price,
+        p.CreatedAt
+    ));
+    Log.Information("✅ ProductCreatedEvent Published for {ProductId}", p.Id);
     return Results.Created($"/api/products/{p.Id}", p);
 }).RequireAuthorization("AdminOnly");
 
