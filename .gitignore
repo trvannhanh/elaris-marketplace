@@ -1,6 +1,7 @@
 # .NET Core
 bin/
 obj/
+
 *.csproj.user
 *.suo
 *.user
@@ -16,6 +17,7 @@ appsettings.*.json
 /src/Services.IdentityService/appsettings.Development.json
 
 # Other
+tempo-data/
 .vscode/
 .idea/
 *.swp

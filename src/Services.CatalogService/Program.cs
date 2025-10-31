@@ -1,10 +1,18 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using MassTransit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using Services.CatalogService.Data;
 using Services.CatalogService.Models;
 using System.Text;
+using BuildingBlocks.Contracts.Events;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
+using Serilog;
+using Serilog.Enrichers.Span;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,7 +81,62 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
 });
 
+// Resource: Metadata cho service (hiển thị trong Jaeger/Tempo)
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService(serviceName: builder.Environment.ApplicationName, serviceVersion: "1.0.0"))  // Thay "catalogservice" hoặc "orderservice"
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()  // Trace HTTP requests
+        .AddHttpClientInstrumentation()  // Trace outgoing HTTP
+        //.AddEntityFrameworkCoreInstrumentation()  // Trace DB (EF Core)
+        .AddSource("MassTransit")  // Built-in MassTransit trace
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri("http://otel-collector:4317");  // OTLP/gRPC cho Collector (sẽ setup sau)
+            options.Protocol = OtlpExportProtocol.Grpc;  // Hoặc Http2
+        }))
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter("MassTransit")  // MassTransit metrics (queue length, message count)
+        .AddPrometheusExporter()  // Export sang Prometheus scrape endpoint /metrics
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri("http://otel-collector:4318");
+        }));
+
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumers(typeof(Program).Assembly); // Nếu sau này có consumer ở Catalog
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("rabbitmq", "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+
+        cfg.ConfigureEndpoints(context);
+    });
+});
+
+builder.Host.UseSerilog((ctx, lc) =>
+{
+    lc.ReadFrom.Configuration(ctx.Configuration)
+      .Enrich.FromLogContext()
+      .Enrich.WithSpan() // 👈 Lấy trace/span id từ OpenTelemetry context
+      .WriteTo.Console(outputTemplate:
+          "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} (TraceId={TraceId}, SpanId={SpanId}){NewLine}{Exception}");
+});
+
 var app = builder.Build();
+
+// Endpoint cho Prometheus scrape metrics
+app.UseOpenTelemetryPrometheusScrapingEndpoint();  // /metrics
+
+app.MapHealthChecks("/health");
 
 if (app.Environment.IsDevelopment())
 {
@@ -91,9 +154,16 @@ app.MapGet("/api/products", async (MongoContext db) =>
     return Results.Ok(products);
 });
 
-app.MapPost("/api/products", async (MongoContext db, Product p) =>
+app.MapPost("/api/products", async (MongoContext db, Product p, IPublishEndpoint publisher) =>
 {
     await db.Products.InsertOneAsync(p);
+    await publisher.Publish(new ProductCreatedEvent(
+        p.Id!,
+        p.Name,
+        p.Price,
+        p.CreatedAt
+    ));
+    Log.Information("✅ ProductCreatedEvent Published for {ProductId}", p.Id);
     return Results.Created($"/api/products/{p.Id}", p);
 }).RequireAuthorization("AdminOnly");
 
@@ -101,6 +171,26 @@ app.MapPut("/api/products/{id}", async (MongoContext db, string id, Product upda
 {
     var result = await db.Products.ReplaceOneAsync(x => x.Id == id, updated);
     return result.ModifiedCount > 0 ? Results.Ok(updated) : Results.NotFound();
+}).RequireAuthorization("AdminOnly");
+
+app.MapPatch("/api/products/{id}/price", async (string id, decimal newPrice, MongoContext db, IPublishEndpoint publisher) =>
+{
+    var product = await db.Products.Find(p => p.Id == id && !p.IsDeleted).FirstOrDefaultAsync();
+    if (product == null) return Results.NotFound();
+
+    var old = product.Price;
+    var update = Builders<Product>.Update.Set(p => p.Price, newPrice);
+    var res = await db.Products.UpdateOneAsync(p => p.Id == id, update);
+
+    if (res.ModifiedCount > 0)
+    {
+        // publish event
+        var ev = new ProductPriceUpdatedEvent(id, old, newPrice, DateTime.UtcNow);
+        await publisher.Publish(ev);
+        return Results.Ok(new { productId = id, oldPrice = old, newPrice });
+    }
+
+    return Results.BadRequest();
 }).RequireAuthorization("AdminOnly");
 
 app.MapDelete("/api/products/{id}", async (MongoContext db, string id) =>

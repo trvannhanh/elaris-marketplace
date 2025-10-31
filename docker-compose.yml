@@ -1,6 +1,12 @@
 
+networks:
+  elaris_net:
+    driver: bridge
 
 services:
+  # ========================
+  # DATABASE & INFRA
+  # ========================
   postgres:
     image: postgres:15
     environment:
@@ -11,7 +17,90 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elaris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ordersql:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: elaris
+      POSTGRES_PASSWORD: elaris_pwd
+      POSTGRES_DB: elaris_orderdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - ordersqldata:/var/lib/postgresql/data
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elaris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inventorysql:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: elaris
+      POSTGRES_PASSWORD: elaris_pwd
+      POSTGRES_DB: elaris_inventorydb
+    ports:
+      - "5434:5432"
+    volumes:
+      - inventorysqldata:/var/lib/postgresql/data
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elaris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI
+    networks:
+      - elaris_net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      - elaris_net
+
+  # ========================
+  # SERVICES
+  # ========================
   identityservice:
     build:
       context: ./src/Services.IdentityService
@@ -24,12 +113,15 @@ services:
     ports:
       - "5001:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - elaris_net
 
   catalogservice:
     build:
-      context: ./src/Services.CatalogService
-      dockerfile: Dockerfile
+      context: ./src
+      dockerfile: Services.CatalogService/Dockerfile
     image: elaris/catalogservice:local
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -39,12 +131,75 @@ services:
     ports:
       - "5002:8080"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elaris_net
 
+  orderservice:
+    build:
+      context: ./src
+      dockerfile: Services.OrderService/Services.OrderService.API/Dockerfile
+    image: elaris/orderservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=ordersql;Port=5432;Database=elaris_orderdb;Username=elaris;Password=elaris_pwd
+    ports:
+      - "5003:8080"
+    depends_on:
+      ordersql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elaris_net
+      
+  paymentservice:
+    build:
+      context: ./src
+      dockerfile: Services.PaymentService/Dockerfile
+    image: elaris/paymentservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "5004:8080"
+    depends_on:
+      - rabbitmq
+      - otel-collector
+    networks:
+      - elaris_net
+
+  inventoryservice:
+    build:
+      context: ./src
+      dockerfile: Services.InventoryService/Services.InventoryService.API/Dockerfile
+    image: elaris/inventoryservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=inventorysql;Port=5432;Database=elaris_inventorydb;Username=elaris;Password=elaris_pwd
+    ports:
+      - "5005:8080"
+    depends_on:
+      inventorysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - elaris_net
+
+  # ========================
+  # API GATEWAY
+  # ========================
   gateway:
     build:
       context: ./src
       dockerfile: ApiGateway/Dockerfile
+    image: elaris/gateway:local
     ports:
       - "5000:8080"
     environment:
@@ -52,38 +207,95 @@ services:
       - ASPNETCORE_URLS=http://+:8080
     depends_on:
       - identityservice
+      - catalogservice
+      - orderservice
+    networks:
+      - elaris_net
 
-  mongo:
-    image: mongo:6
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodata:/data/db
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"
-      - "15672:15672" # management UI
-
-  redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
-
-  # Optional admin GUIs
+  # ========================
+  # ADMIN GUIs (DEV ONLY)
+  # ========================
   mongo-express:
     image: mongo-express
     environment:
       ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: 27017
     ports:
       - "8081:8081"
     depends_on:
       - mongo
+    networks:
+      - elaris_net
 
+  # ========================
+  # OBSERVABILITY STACK
+  # ========================
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.107.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus metrics
+    depends_on:
+      - tempo
+      - prometheus
+    networks:
+      - elaris_net
+
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - ./tempo-data:/tmp/tempo
+    ports:
+      - "3200:3200"   # HTTP API
+    networks:
+      - elaris_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - elaris_net
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-provisioning/:/etc/grafana/provisioning/
+    ports:
+      - "3000:3000"
+    depends_on:
+      - tempo
+      - prometheus
+    networks:
+      - elaris_net
+
+# ========================
+# VOLUMES
+# ========================
 volumes:
   pgdata:
   mongodata:
+  tempo-data:
+  prometheus-data:
+  grafana-data:
+  ordersqldata:
+  inventorysqldata:
