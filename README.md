@@ -143,26 +143,6 @@ Gateway API: http://localhost:8000
 
 ---
 
-## ☁️ Deployment & Roadmap
-
-| Phase | Goal | Duration |
-|--------|------|-----------|
-| 0 | Setup repo + CI/CD | 1 week |
-| 1 | Identity + Product + UI | 3–4 weeks |
-| 2 | Inventory + Ordering + Outbox | 3–4 weeks |
-| 3 | Saga + Payment orchestration | 2–3 weeks |
-| 4 | Observability + Resilience | 1–2 weeks |
-| 5 | Polish UI + Docs + Demo | 1–2 weeks |
-
-Recommended Infrastructure:
-- Kubernetes (AKS/EKS/GKE)
-- Helm for deployment
-- Vault for secret management
-- Managed DBs (Mongo Atlas, Postgres Cloud)
-- RabbitMQ HA Cluster
-
----
-
 ## 🎨 UI / UX
 
 <p align="center">
@@ -175,17 +155,6 @@ UI hướng phong cách **pixel-art 16-bit**, với:
 - Grid sản phẩm có sprite & badge hiếm
 - Modal giỏ hàng viền pixel
 - Album “Pet Collection” dạng card retro
-
----
-
-## 🧠 Dev Tips
-
-- Use **Idempotency-Key** for POST endpoints  
-- Apply **optimistic concurrency** (EF Core RowVersion)  
-- Leverage **MassTransit Outbox** for reliable events  
-- Centralize logging & tracing for each flow  
-- Secure secrets via Vault / environment vars  
-
 ---
 
 ## 🧑‍💻 Contributors
