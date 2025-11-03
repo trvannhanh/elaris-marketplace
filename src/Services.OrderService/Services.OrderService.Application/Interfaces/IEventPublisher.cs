@@ -4,6 +4,6 @@ namespace Services.OrderService.Application.Interfaces
 {
     public interface IEventPublisher
     {
-        Task PublishOrderCreatedEvent(OrderCreatedEvent @event, CancellationToken cancellationToken);
+        Task PublishOrderCreatedEvent(OrderEvent @event, CancellationToken cancellationToken);
     }
 }

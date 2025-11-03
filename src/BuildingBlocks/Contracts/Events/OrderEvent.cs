@@ -1,8 +1,6 @@
-﻿
-
-namespace BuildingBlocks.Contracts.Events
+﻿namespace BuildingBlocks.Contracts.Events
 {
-    public record OrderCreatedEvent(
+    public record OrderEvent(
         Guid OrderId,
         string ProductId,
         decimal TotalPrice,

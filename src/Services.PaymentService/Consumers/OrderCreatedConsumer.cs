@@ -3,7 +3,7 @@ using MassTransit;
 
 namespace Services.PaymentService.Consumers
 {
-    public class OrderCreatedConsumer : IConsumer<OrderCreatedEvent>
+    public class OrderCreatedConsumer : IConsumer<OrderEvent>
     {
         private readonly ILogger<OrderCreatedConsumer> _logger;
 
@@ -12,7 +12,7 @@ namespace Services.PaymentService.Consumers
             _logger = logger;
         }
 
-        public Task Consume(ConsumeContext<OrderCreatedEvent> context)
+        public Task Consume(ConsumeContext<OrderEvent> context)
         {
             var msg = context.Message;
             _logger.LogInformation("PaymentService nhận OrderCreatedEvent: OrderId={OrderId}, Total={TotalPrice}", msg.OrderId, msg.TotalPrice);
