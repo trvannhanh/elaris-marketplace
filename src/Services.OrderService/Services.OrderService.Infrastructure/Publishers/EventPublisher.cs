@@ -13,7 +13,7 @@ namespace Services.OrderService.Infrastructure.Publishers
             _publishEndpoint = publishEndpoint;
         }
 
-        public Task PublishOrderCreatedEvent(OrderEvent @event, CancellationToken cancellationToken)
+        public Task PublishOrderCreatedEvent(OrderCreatedEvent @event, CancellationToken cancellationToken)
         {
             return _publishEndpoint.Publish(@event, cancellationToken);
         }

@@ -1,11 +1,16 @@
 
 
+using MassTransit;
+using Microsoft.EntityFrameworkCore;
+using Services.PaymentService.Application.Payments.Commands;
 using Services.PaymentService.Infrastructure.Extensions;
+using Services.PaymentService.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var conn = builder.Configuration.GetConnectionString("DefaultConnection")
-           ?? Environment.GetEnvironmentVariable("DEFAULT_CONNECTION");
+           ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+           ?? Environment.GetEnvironmentVariable("DEFAULT_CONNECTION"); // fallback
 
 builder.Services.AddInfrastructure(conn);
 
@@ -13,23 +18,20 @@ builder.Services.AddInfrastructure(conn);
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(CreatePaymentCommand).Assembly));
 
-// MassTransit
-builder.Services.AddMassTransit(x =>
-{
-    x.UsingRabbitMq((context, cfg) =>
-    {
-        cfg.Host("rabbitmq", "/", h =>
-        {
-            h.Username("guest");
-            h.Password("guest");
-        });
-
-        cfg.ConfigureEndpoints(context);
-    });
-});
-
+// Swagger + controllers
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+    db.Database.Migrate();
+}
 
 app.MapControllers();
 app.Run();
