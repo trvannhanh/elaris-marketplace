@@ -8,4 +8,10 @@
         int Quantity,
         string Status
     );
+
+    public record OrderStatusUpdatedEvent(
+        Guid OrderId,
+        string Status,
+        DateTime UpdatedAt
+    );
 }
