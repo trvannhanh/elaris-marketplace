@@ -32,8 +32,26 @@ if (app.Environment.IsDevelopment())
 }
 
 // API
-app.MapGet("/api/basket/{userId}", async (string userId, IBasketRepository repo)
-    => Results.Ok(await repo.GetBasketAsync(userId)));
+app.MapGet("/api/basket/{userId}", async (
+    string userId,
+    IBasketRepository repo,
+    CancellationToken ct) =>
+{
+    var items = await repo.GetBasketAsync(userId, ct);
+
+    if (items == null || !items.Any())
+        return Results.Ok(new BasketDto
+        {
+            UserId = userId,
+            Items = new List<BasketItem>()
+        });
+
+    return Results.Ok(new BasketDto
+    {
+        UserId = userId,
+        Items = items
+    });
+});
 
 app.MapPost("/api/basket/{userId}", async (string userId, BasketItem item,
                                           IBasketRepository repo,
@@ -54,9 +72,17 @@ app.MapPost("/api/basket/{userId}", async (string userId, BasketItem item,
     return Results.Ok();
 });
 
-app.MapDelete("/api/basket/{userId}", async (string userId, IBasketRepository repo) =>
+app.MapDelete("/api/basket/{userId}/{productId}", async (
+    string userId,
+    string productId,
+    IBasketRepository repo,
+    CancellationToken ct) =>
 {
-    await repo.ClearBasketAsync(userId);
+    var success = await repo.RemoveItemAsync(userId, productId, ct);
+
+    if (!success)
+        return Results.NotFound("Item not found");
+
     return Results.NoContent();
 });
 
