@@ -6,7 +6,7 @@ namespace Services.OrderService.Application.Orders.GetOrdersWithFilters
 {
     public record GetOrdersWithFiltersQuery(
         string? Search,
-        string? ProductId,
+        string? UserId,
         string? SortBy,
         string? SortDirection,
         int Page = 1,

@@ -23,11 +23,18 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
             var order = new Order
             {
                 Id = Guid.NewGuid(),
-                ProductId = request.ProductId,
-                Quantity = request.Quantity,
-                TotalPrice = request.TotalPrice,
+                UserId = request.UserId,
                 CreatedAt = DateTime.UtcNow,
-                Status = OrderStatus.Pending
+                Status = OrderStatus.Pending,
+                TotalPrice = request.Items.Sum(x => x.Price * x.Quantity),
+                Items = request.Items.Select(i => new OrderItem
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = i.ProductId,
+                    Name = i.Name,
+                    Price = i.Price,
+                    Quantity = i.Quantity
+                }).ToList()
             };
 
             await _orderRepository.AddAsync(order, cancellationToken);
@@ -37,10 +44,9 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
             // Publish event → sẽ được lưu vào Outbox table nhờ MassTransit
             await _eventPublisher.PublishOrderCreatedEvent(new OrderCreatedEvent(
                 order.Id,
-                order.ProductId,
+                order.UserId,
                 order.TotalPrice,
                 order.CreatedAt,
-                order.Quantity,
                 order.Status.ToString()
             ), cancellationToken);
 

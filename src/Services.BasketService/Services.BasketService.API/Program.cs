@@ -3,6 +3,8 @@ using Services.BasketService.Infrastructure.Repositories;
 using Services.BasketService.Application.Interfaces;
 using Services.BasketService.Application.Models;
 using Services.BasketService.Infrastructure.Services;
+using MassTransit;
+using BuildingBlocks.Contracts.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +72,34 @@ app.MapPost("/api/basket/{userId}", async (string userId, BasketItem item,
 
     await repo.AddOrUpdateItemAsync(userId, item, ct);
     return Results.Ok();
+});
+
+app.MapPost("/api/basket/{userId}/checkout", async (
+    string userId,
+    IBasketRepository repo,
+    IPublishEndpoint publisher,
+    CancellationToken ct) =>
+{
+    var items = await repo.GetBasketAsync(userId, ct);
+
+    if (!items.Any())
+        return Results.BadRequest("Basket is empty!");
+
+    // ✅ Publish sự kiện để OrderService tạo Order
+    await publisher.Publish(new BasketCheckedOutEvent(
+        userId,
+        items.Select(i => new BasketItemEvent(
+            i.ProductId,
+            i.Name,
+            i.Price,
+            i.Quantity
+        )).ToList()
+    ), ct);
+
+    // ✅ Clear basket sau khi publish event
+    await repo.ClearBasketAsync(userId, ct);
+
+    return Results.Accepted();
 });
 
 app.MapDelete("/api/basket/{userId}/{productId}", async (

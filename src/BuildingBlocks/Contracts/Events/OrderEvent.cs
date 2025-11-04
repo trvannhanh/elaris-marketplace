@@ -2,10 +2,9 @@
 {
     public record OrderCreatedEvent(
         Guid OrderId,
-        string ProductId,
+        string UserId,
         decimal TotalPrice,
         DateTime CreatedAt,
-        int Quantity,
         string Status
     );
 

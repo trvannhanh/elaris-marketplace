@@ -25,13 +25,13 @@ namespace Services.OrderService.Application.Orders.GetOrdersWithFilters
         {
             var query = _repo.Query(); // IQueryable<Order>
 
-            // 🔍 Search theo ProductId
+            // 🔍 Search theo UserId
             if (!string.IsNullOrEmpty(q.Search))
-                query = query.Where(o => o.ProductId.Contains(q.Search));
+                query = query.Where(o => o.UserId.Contains(q.Search));
 
             // 🎯 Filter theo ProductId exact
-            if (!string.IsNullOrEmpty(q.ProductId))
-                query = query.Where(o => o.ProductId == q.ProductId);
+            if (!string.IsNullOrEmpty(q.UserId))
+                query = query.Where(o => o.UserId == q.UserId);
 
             // 📌 Sorting
             query = (q.SortBy?.ToLower(), q.SortDirection?.ToLower()) switch

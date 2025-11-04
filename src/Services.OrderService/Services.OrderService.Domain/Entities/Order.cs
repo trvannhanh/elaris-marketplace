@@ -3,12 +3,13 @@
     public class Order
     {
         public Guid Id { get; set; }
-        public string ProductId { get; set; } = default!;
-        public int Quantity { get; set; }
+        public string UserId { get; set; } = default!;
         public decimal TotalPrice { get; set; }
         public DateTime CreatedAt { get; set; }
 
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
+
+        public List<OrderItem> Items { get; set; } = new();
 
         public void MarkProcessing()
         {

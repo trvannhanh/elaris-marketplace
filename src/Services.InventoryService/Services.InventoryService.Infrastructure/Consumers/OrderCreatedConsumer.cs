@@ -20,8 +20,8 @@ namespace Services.InventoryService.Infrastructure.Consumers
         {
             var message = context.Message;
 
-            var hasStock = await _inventoryRepo.HasStockAsync(message.ProductId, message.Quantity);
-
+            //var hasStock = await _inventoryRepo.HasStockAsync(message.ProductId, message.Quantity);
+            var hasStock = true;
             if (!hasStock)
             {
                 await _publisher.Publish(new OrderStockRejectedEvent(
@@ -33,12 +33,12 @@ namespace Services.InventoryService.Infrastructure.Consumers
                 return;
             }
 
-            await _publisher.Publish(new OrderStockAvailableEvent(
-                message.OrderId,
-                message.ProductId,
-                message.Quantity,
-                DateTime.UtcNow
-            ));
+            //await _publisher.Publish(new OrderStockAvailableEvent(
+            //    message.OrderId,
+            //    message.ProductId,
+            //    message.Quantity,
+            //    DateTime.UtcNow
+            //));
         }
     }
 }
