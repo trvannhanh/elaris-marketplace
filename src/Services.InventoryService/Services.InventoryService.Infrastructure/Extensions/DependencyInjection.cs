@@ -27,9 +27,11 @@ namespace Services.InventoryService.Infrastructure.Extensions
                 x.SetKebabCaseEndpointNameFormatter();
 
                 x.AddConsumer<ProductCreatedConsumer>();
+                x.AddConsumer<OrderCreatedConsumer>();
+                x.AddConsumer<PaymentSucceededConsumer>();
 
                 // ✅ Quan trọng: Add consumer từ Infrastructure assembly
-                x.AddConsumers(Assembly.GetExecutingAssembly());
+                //x.AddConsumers(Assembly.GetExecutingAssembly());
 
                 x.UsingRabbitMq((context, cfg) =>
                 {

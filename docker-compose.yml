@@ -160,16 +160,19 @@ services:
   paymentservice:
     build:
       context: ./src
-      dockerfile: Services.PaymentService/Dockerfile
+      dockerfile: Services.PaymentService/Services.PaymentService.API/Dockerfile
     image: elaris/paymentservice:local
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=ordersql;Port=5432;Database=elaris_paymentdb;Username=elaris;Password=elaris_pwd
     ports:
       - "5004:8080"
     depends_on:
-      - rabbitmq
-      - otel-collector
+      ordersql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - elaris_net
 
@@ -192,6 +195,21 @@ services:
     networks:
       - elaris_net
 
+  basketservice:
+    build:
+      context: ./src
+      dockerfile: Services.BasketService/Services.BasketService.API/Dockerfile
+    image: elaris/basketservice:local
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "5006:8080"
+    depends_on:
+      - redis
+    networks:
+      - elaris_net
+
   # ========================
   # API GATEWAY
   # ========================
@@ -209,6 +227,7 @@ services:
       - identityservice
       - catalogservice
       - orderservice
+      - paymentservice
     networks:
       - elaris_net
 

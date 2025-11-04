@@ -1,21 +1,44 @@
-﻿
-using BuildingBlocks.Contracts.Events;
+﻿using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using MediatR;
-using Services.InventoryService.Application.Inventory.Commands.UpdateStock;
+using Services.InventoryService.Application.Interfaces;
 
 namespace Services.InventoryService.Infrastructure.Consumers
 {
     public class OrderCreatedConsumer : IConsumer<OrderCreatedEvent>
     {
-        private readonly IMediator _mediator;
+        private readonly IInventoryRepository _inventoryRepo;
+        private readonly IPublishEndpoint _publisher;
 
-        public OrderCreatedConsumer(IMediator mediator)
-            => _mediator = mediator;
+        public OrderCreatedConsumer(IInventoryRepository repo, IPublishEndpoint publisher)
+        {
+            _inventoryRepo = repo;
+            _publisher = publisher;
+        }
 
         public async Task Consume(ConsumeContext<OrderCreatedEvent> context)
         {
-            await _mediator.Send(new UpdateStockCommand(context.Message.ProductId, context.Message.Quantity));
+            var message = context.Message;
+
+            var hasStock = await _inventoryRepo.HasStockAsync(message.ProductId, message.Quantity);
+
+            if (!hasStock)
+            {
+                await _publisher.Publish(new OrderStockRejectedEvent(
+                    message.OrderId,
+                    "Out of stock",
+                    DateTime.UtcNow
+                ));
+
+                return;
+            }
+
+            await _publisher.Publish(new OrderStockAvailableEvent(
+                message.OrderId,
+                message.ProductId,
+                message.Quantity,
+                DateTime.UtcNow
+            ));
         }
     }
 }

@@ -4,9 +4,11 @@ namespace Services.InventoryService.Application.Interfaces
 {
     public interface IInventoryRepository
     {
-        Task<InventoryItem?> GetByProductIdAsync(string productId, CancellationToken ct);
-        Task UpdateStockAsync(InventoryItem item, CancellationToken ct);
-        Task SaveChangesAsync(CancellationToken ct);
-        Task<InventoryItem> AddAsync(InventoryItem order, CancellationToken cancellationToken);
+        Task<bool> HasStockAsync(string productId, int quantity, CancellationToken cancellationToken = default);
+        Task DecreaseStockAsync(string productId, int quantity, CancellationToken cancellationToken = default);
+
+        Task<InventoryItem?> GetByProductIdAsync(string productId, CancellationToken cancellationToken = default);
+        Task AddAsync(InventoryItem inventory, CancellationToken cancellationToken = default);
+        Task SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

@@ -32,6 +32,8 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
 
             await _orderRepository.AddAsync(order, cancellationToken);
 
+           
+
             // Publish event → sẽ được lưu vào Outbox table nhờ MassTransit
             await _eventPublisher.PublishOrderCreatedEvent(new OrderCreatedEvent(
                 order.Id,
@@ -41,6 +43,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 order.Quantity,
                 order.Status.ToString()
             ), cancellationToken);
+
 
             await _orderRepository.SaveChangesAsync(cancellationToken);
 
