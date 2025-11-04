@@ -2,33 +2,46 @@
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Services.PaymentService.Application.Interfaces;
+using Services.PaymentService.Application.Models;
 using Services.PaymentService.Domain.Entities;
+using System.Net.Http.Json;
 
 namespace Services.PaymentService.Infrastructure.Consumers
 {
-    public class OrderCreatedConsumer : IConsumer<OrderCreatedEvent>
+    public class OrderStockReservedConsumer : IConsumer<OrderStockAvailableEvent>
     {
-        private readonly ILogger<OrderCreatedConsumer> _logger;
+        private readonly ILogger<OrderStockReservedConsumer> _logger;
         private readonly IPaymentRepository _repo;
         private readonly IPublishEndpoint _publisher;
 
-        public OrderCreatedConsumer(ILogger<OrderCreatedConsumer> logger, IPaymentRepository repo, IPublishEndpoint publisher)
+        public OrderStockReservedConsumer(ILogger<OrderStockReservedConsumer> logger, IPaymentRepository repo, IPublishEndpoint publisher)
         {
             _logger = logger;
             _repo = repo;
             _publisher = publisher;
         }
 
-        public async Task Consume(ConsumeContext<OrderCreatedEvent> context)
+        public async Task Consume(ConsumeContext<OrderStockAvailableEvent> context)
         {
             var msg = context.Message;
-            _logger.LogInformation("OrderCreatedEvent received: OrderId={OrderId} Amount={Total}", msg.OrderId, msg.TotalPrice);
+            _logger.LogInformation("OrderStockReservedEvent received: OrderId={OrderId}", msg.OrderId);
+
+            // ✅ Fetch order details from OrderService
+            var client = new HttpClient();
+            var orderResponse = await client.GetFromJsonAsync<OrderDto>(
+                $"http://orderservice:8080/api/orders/{msg.OrderId}");
+
+            if (orderResponse == null)
+            {
+                _logger.LogError("Order not found {OrderId}", msg.OrderId);
+                return;
+            }
 
             // 1) create payment record (Pending)
             var payment = new Payment
             {
                 OrderId = msg.OrderId,
-                Amount = msg.TotalPrice,
+                Amount = orderResponse.TotalPrice,
                 Status = PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
@@ -57,7 +70,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
 
                     _logger.LogInformation("Payment succeeded for OrderId={OrderId}", msg.OrderId);
 
-                    await _publisher.Publish(new PaymentSucceededEvent(msg.OrderId, payment.Amount, payment.CompletedAt!.Value), context.CancellationToken);
+                    await _publisher.Publish(new PaymentSucceededEvent(msg.OrderId, payment.Amount, msg.ProductId, msg.Quantity ,payment.CompletedAt!.Value), context.CancellationToken);
                 }
                 else
                 {

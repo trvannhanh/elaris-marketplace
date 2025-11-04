@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Services.OrderService.Application.Interfaces;
+using Services.OrderService.Infrastructure.Consumers;
 using Services.OrderService.Infrastructure.Persistence;
 using Services.OrderService.Infrastructure.Publishers;
 using Services.OrderService.Infrastructure.Repositories;
@@ -22,12 +23,16 @@ namespace Services.OrderService.Infrastructure.Extensions
             {
                 x.SetKebabCaseEndpointNameFormatter();
 
+                x.AddConsumer<OrderStockAvailableConsumer>();
+                x.AddConsumer<PaymentSucceededConsumer>();
+                x.AddConsumer<PaymentFailedConsumer>();
+
                 x.AddConsumers(typeof(DependencyInjection).Assembly);
 
                 x.AddEntityFrameworkOutbox<OrderDbContext>(o =>
                 {  
                     o.UsePostgres();
-                    o.QueryDelay = TimeSpan.FromSeconds(10);
+                    o.QueryDelay = TimeSpan.FromSeconds(1);
                     o.DuplicateDetectionWindow = TimeSpan.FromMinutes(1);
                     
                     o.UseBusOutbox();

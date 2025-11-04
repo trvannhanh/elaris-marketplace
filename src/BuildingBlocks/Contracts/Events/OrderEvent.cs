@@ -14,4 +14,12 @@
         string Status,
         DateTime UpdatedAt
     );
+
+    public record OrderStockAvailableEvent(
+        Guid OrderId,
+        string ProductId,
+        int Quantity, 
+        DateTime Timestamp
+    );
+    public record OrderStockRejectedEvent(Guid OrderId, string Reason, DateTime Timestamp);
 }

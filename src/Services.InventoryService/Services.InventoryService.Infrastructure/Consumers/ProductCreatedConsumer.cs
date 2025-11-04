@@ -27,7 +27,7 @@ namespace Services.InventoryService.Infrastructure.Consumers
             var inventory = new InventoryItem
             {
                 ProductId = message.ProductId,
-                AvailableStock = 0,
+                AvailableStock = 10,
                 LastUpdated = DateTime.UtcNow
             };
 

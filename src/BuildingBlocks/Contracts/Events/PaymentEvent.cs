@@ -3,6 +3,8 @@
     public record PaymentSucceededEvent(
         Guid OrderId,
         decimal Amount,
+        string ProductId,
+        int Quantity,
         DateTime PaidAt
     );
 
@@ -11,5 +13,5 @@
     decimal Amount,
     string Reason,
     DateTime FailedAt
-);
+    );
 }

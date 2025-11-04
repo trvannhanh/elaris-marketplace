@@ -4,7 +4,7 @@ namespace Services.OrderService.Application.Orders.DTOs
 {
     public class OrderResponse
     {
-        public string OrderId { get; set; }
+        public string Id { get; set; }
         public string ProductId { get; set; }
         public int Quantity { get; set; }
         public decimal TotalPrice { get; set; }
