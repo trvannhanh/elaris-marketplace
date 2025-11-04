@@ -8,13 +8,13 @@ using System.Net.Http.Json;
 
 namespace Services.PaymentService.Infrastructure.Consumers
 {
-    public class OrderStockReservedConsumer : IConsumer<OrderStockAvailableEvent>
+    public class OrderStockAvailableConsumer : IConsumer<OrderStockAvailableEvent>
     {
-        private readonly ILogger<OrderStockReservedConsumer> _logger;
+        private readonly ILogger<OrderStockAvailableConsumer> _logger;
         private readonly IPaymentRepository _repo;
         private readonly IPublishEndpoint _publisher;
 
-        public OrderStockReservedConsumer(ILogger<OrderStockReservedConsumer> logger, IPaymentRepository repo, IPublishEndpoint publisher)
+        public OrderStockAvailableConsumer(ILogger<OrderStockAvailableConsumer> logger, IPaymentRepository repo, IPublishEndpoint publisher)
         {
             _logger = logger;
             _repo = repo;

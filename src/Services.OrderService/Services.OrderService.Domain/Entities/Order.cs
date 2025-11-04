@@ -26,6 +26,14 @@
             Status = OrderStatus.Completed;
         }
 
+        public void MarkCancelled()
+        {
+            if (Status == OrderStatus.Completed)
+                throw new InvalidOperationException("Cannot cancel a completed order");
+
+            Status = OrderStatus.Failed;
+        }
+
         public void MarkFailed()
         {
             if (Status == OrderStatus.Completed)

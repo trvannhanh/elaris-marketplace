@@ -24,10 +24,13 @@ namespace Services.OrderService.Infrastructure.Extensions
                 x.SetKebabCaseEndpointNameFormatter();
 
                 x.AddConsumer<OrderStockAvailableConsumer>();
+                x.AddConsumer<OrderStockRejectedConsumer>();
+                x.AddConsumer<InventoryUpdatedConsumer>();
+                x.AddConsumer<InventoryFailedConsumer>();
                 x.AddConsumer<PaymentSucceededConsumer>();
                 x.AddConsumer<PaymentFailedConsumer>();
 
-                x.AddConsumers(typeof(DependencyInjection).Assembly);
+                //x.AddConsumers(typeof(DependencyInjection).Assembly);
 
                 x.AddEntityFrameworkOutbox<OrderDbContext>(o =>
                 {  

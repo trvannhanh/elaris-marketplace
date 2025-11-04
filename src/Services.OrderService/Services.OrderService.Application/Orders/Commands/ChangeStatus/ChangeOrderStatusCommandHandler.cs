@@ -30,13 +30,16 @@ namespace Services.OrderService.Application.Orders.Commands.ChangeStatus
                 case "Completed":
                     order.MarkCompleted();
                     break;
+                case "Cancelled":
+                    order.MarkCancelled();
+                    break;
                 case "Failed":
                     order.MarkFailed();
                     break;
                 default:
                     throw new InvalidOperationException("Invalid status");
             }
-
+            
             await _repo.SaveChangesAsync(ct);
 
             await _publisher.Publish(

@@ -19,7 +19,7 @@ namespace Services.OrderService.Infrastructure.Consumers
 
         public async Task Consume(ConsumeContext<OrderStockRejectedEvent> context)
         {
-            await _mediator.Send(new ChangeOrderStatusCommand(context.Message.OrderId, "Failed"));
+            await _mediator.Send(new ChangeOrderStatusCommand(context.Message.OrderId, "Cancelled"));
         }
     }
 }
