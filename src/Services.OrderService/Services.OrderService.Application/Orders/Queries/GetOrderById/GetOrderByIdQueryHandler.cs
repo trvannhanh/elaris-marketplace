@@ -1,31 +1,23 @@
-﻿using MapsterMapper;
+﻿using Mapster;
 using MediatR;
-using Services.OrderService.Application.Common.Exceptions;
 using Services.OrderService.Application.Interfaces;
-using Services.OrderService.Application.Orders.DTOs;
+using Services.OrderService.Application.Models;
 
 namespace Services.OrderService.Application.Orders.Queries.GetOrderById
 {
-    public class GetOrderByIdQueryHandler
-    : IRequestHandler<GetOrderByIdQuery, OrderResponse?>
+    public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, OrderDto?>
     {
-        private readonly IOrderRepository _repo;
-        private readonly IMapper _mapper;
+        private readonly IOrderRepository _orderRepo;
 
-        public GetOrderByIdQueryHandler(IOrderRepository repo, IMapper mapper)
+        public GetOrderByIdQueryHandler(IOrderRepository orderRepo)
         {
-            _repo = repo;
-            _mapper = mapper;
+            _orderRepo = orderRepo;
         }
 
-        public async Task<OrderResponse?> Handle(GetOrderByIdQuery request, CancellationToken cancellationToken)
+        public async Task<OrderDto?> Handle(GetOrderByIdQuery request, CancellationToken cancellationToken)
         {
-            var order = await _repo.GetByIdAsync(request.Id, cancellationToken);
-
-            if (order == null)
-                throw new NotFoundException($"Order with Id = {request.Id} not found");
-
-            return _mapper.Map<OrderResponse>(order);
+            var order = await _orderRepo.GetByIdAsync(request.Id, cancellationToken);
+            return order?.Adapt<OrderDto>();
         }
     }
 }

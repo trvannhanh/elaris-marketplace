@@ -1,8 +1,7 @@
 ﻿using MediatR;
-using Services.OrderService.Application.Orders.DTOs;
-using Services.OrderService.Domain.Entities;
+using Services.OrderService.Application.Models;
 
 namespace Services.OrderService.Application.Orders.Queries.GetOrderById
 {
-    public record GetOrderByIdQuery(Guid Id) : IRequest<OrderResponse?>;
+    public record GetOrderByIdQuery(Guid Id) : IRequest<OrderDto?>;
 }

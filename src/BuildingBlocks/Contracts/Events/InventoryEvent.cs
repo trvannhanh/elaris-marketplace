@@ -2,13 +2,12 @@
 {
     public record InventoryUpdatedEvent(
         Guid OrderId,
-        string ProductId,
-        int Quantity,
+        List<OrderItemEntry> Items,
         DateTime Timestamp
     );
+
     public record InventoryFailedEvent(
         Guid OrderId,
-        string ProductId,
         string Reason,
         DateTime Timestamp
     );

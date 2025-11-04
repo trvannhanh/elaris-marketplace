@@ -20,25 +20,41 @@ namespace Services.InventoryService.Infrastructure.Consumers
         {
             var message = context.Message;
 
-            //var hasStock = await _inventoryRepo.HasStockAsync(message.ProductId, message.Quantity);
-            var hasStock = true;
-            if (!hasStock)
+            var order = await _inventoryRepo.FetchOrderDetails(message.OrderId);
+            if (order == null)
+                return; // handle later: dead-letter / retry
+
+            bool allInStock = true;
+            List<OrderItemEntry> items = new();
+
+            foreach (var item in order.Items)
+            {
+                var hasStock = await _inventoryRepo.HasStockAsync(item.ProductId, item.Quantity);
+                if (!hasStock)
+                {
+                    allInStock = false;
+                    break;
+                }
+
+                items.Add(new OrderItemEntry(item.ProductId, item.Quantity));
+            }
+
+            if (!allInStock)
             {
                 await _publisher.Publish(new OrderStockRejectedEvent(
                     message.OrderId,
-                    "Out of stock",
+                    "One or more items out of stock",
                     DateTime.UtcNow
                 ));
-
                 return;
             }
 
-            //await _publisher.Publish(new OrderStockAvailableEvent(
-            //    message.OrderId,
-            //    message.ProductId,
-            //    message.Quantity,
-            //    DateTime.UtcNow
-            //));
+            //All in stock
+            await _publisher.Publish(new OrderItemsReservedEvent(
+                message.OrderId,
+                items,
+                DateTime.UtcNow
+            ));
         }
     }
 }

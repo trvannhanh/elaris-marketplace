@@ -27,12 +27,14 @@ namespace Services.InventoryService.Infrastructure.Consumers
 
             try
             {
-                await _inventoryRepo.DecreaseStockAsync(msg.ProductId, msg.Quantity);
+                foreach (var item in msg.Items)
+                {
+                    await _inventoryRepo.DecreaseStockAsync(item.ProductId, item.Quantity);
+                }
 
                 await _publisher.Publish(new InventoryUpdatedEvent(
                     msg.OrderId,
-                    msg.ProductId,
-                    msg.Quantity,
+                    msg.Items,
                     DateTime.UtcNow
                 ));
 
@@ -42,7 +44,6 @@ namespace Services.InventoryService.Infrastructure.Consumers
             {
                 await _publisher.Publish(new InventoryFailedEvent(
                     msg.OrderId,
-                    msg.ProductId,
                     ex.Message,
                     DateTime.UtcNow
                 ));

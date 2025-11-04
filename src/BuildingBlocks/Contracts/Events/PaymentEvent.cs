@@ -3,15 +3,14 @@
     public record PaymentSucceededEvent(
         Guid OrderId,
         decimal Amount,
-        string ProductId,
-        int Quantity,
+        List<OrderItemEntry> Items,
         DateTime PaidAt
     );
 
     public record PaymentFailedEvent(
-    Guid OrderId,
-    decimal Amount,
-    string Reason,
-    DateTime FailedAt
+        Guid OrderId,
+        decimal Amount,
+        string Reason,
+        DateTime FailedAt
     );
 }

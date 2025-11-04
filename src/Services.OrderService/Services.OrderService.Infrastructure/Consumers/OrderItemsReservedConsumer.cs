@@ -7,18 +7,18 @@ using Services.OrderService.Application.Orders.Commands.ChangeStatus;
 
 namespace Services.OrderService.Infrastructure.Consumers
 {
-    public class OrderStockAvailableConsumer : IConsumer<OrderStockAvailableEvent>
+    public class OrderItemsReservedConsumer : IConsumer<OrderItemsReservedEvent>
     {
-        private readonly ILogger<OrderStockAvailableConsumer> _logger;
+        private readonly ILogger<OrderItemsReservedConsumer> _logger;
         private readonly IMediator _mediator;
 
-        public OrderStockAvailableConsumer(ILogger<OrderStockAvailableConsumer> logger, IMediator mediator)
+        public OrderItemsReservedConsumer(ILogger<OrderItemsReservedConsumer> logger, IMediator mediator)
         {
             _logger = logger;
             _mediator = mediator;
         }
 
-        public async Task Consume(ConsumeContext<OrderStockAvailableEvent> context)
+        public async Task Consume(ConsumeContext<OrderItemsReservedEvent> context)
         {
             await _mediator.Send(new ChangeOrderStatusCommand(context.Message.OrderId, "Processing"));
         }

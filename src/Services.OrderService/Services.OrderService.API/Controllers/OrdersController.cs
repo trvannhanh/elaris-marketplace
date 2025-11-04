@@ -21,14 +21,15 @@ namespace Services.OrderService.API.Controllers
         public async Task<IActionResult> CreateOrder(CreateOrderCommand command)
         {
             var result = await _mediator.Send(command);
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            return CreatedAtAction(nameof(GetOrderById), new { id = result.Id }, result);
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> GetById(Guid id)
+        [HttpGet("{orderId:guid}")]
+        public async Task<IActionResult> GetOrderById(Guid orderId)
         {
-            var result = await _mediator.Send(new GetOrderByIdQuery(id));
-            return result is not null ? Ok(result) : NotFound();
+            var result = await _mediator.Send(new GetOrderByIdQuery(orderId));
+            if (result == null) return NotFound();
+            return Ok(result);
         }
 
         [HttpGet]

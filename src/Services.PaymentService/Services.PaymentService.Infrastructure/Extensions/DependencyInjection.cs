@@ -21,7 +21,7 @@ namespace Services.PaymentService.Infrastructure.Extensions
             // MassTransit + consumer
             services.AddMassTransit(x =>
             {
-                x.AddConsumer<OrderStockAvailableConsumer>();
+                x.AddConsumer<OrderItemsReservedConsumer>();
 
                 x.UsingRabbitMq((context, cfg) =>
                 {

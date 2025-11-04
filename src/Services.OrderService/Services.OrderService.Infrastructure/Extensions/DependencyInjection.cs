@@ -23,7 +23,7 @@ namespace Services.OrderService.Infrastructure.Extensions
             {
                 x.SetKebabCaseEndpointNameFormatter();
 
-                x.AddConsumer<OrderStockAvailableConsumer>();
+                x.AddConsumer<OrderItemsReservedConsumer>();
                 x.AddConsumer<OrderStockRejectedConsumer>();
                 x.AddConsumer<InventoryUpdatedConsumer>();
                 x.AddConsumer<InventoryFailedConsumer>();

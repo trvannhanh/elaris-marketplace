@@ -1,4 +1,5 @@
 ﻿using Mapster;
+using Services.OrderService.Application.Models;
 using Services.OrderService.Application.Orders.DTOs;
 using Services.OrderService.Domain.Entities;
 
@@ -8,7 +9,10 @@ namespace Services.OrderService.Application.Common.Mappings
     {
         public void Register(TypeAdapterConfig config)
         {
-            config.NewConfig<Order, OrderResponse>().Map(dest => dest.Status, src => src.Status.ToString());
+            config.NewConfig<Order, OrderDto>()
+            .Map(dest => dest.Items, src => src.Items);
+
+            config.NewConfig<OrderItem, OrderItemDto>();
         }
     }
 }

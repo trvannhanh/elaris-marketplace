@@ -8,20 +8,20 @@ using System.Net.Http.Json;
 
 namespace Services.PaymentService.Infrastructure.Consumers
 {
-    public class OrderStockAvailableConsumer : IConsumer<OrderStockAvailableEvent>
+    public class OrderItemsReservedConsumer : IConsumer<OrderItemsReservedEvent>
     {
-        private readonly ILogger<OrderStockAvailableConsumer> _logger;
+        private readonly ILogger<OrderItemsReservedConsumer> _logger;
         private readonly IPaymentRepository _repo;
         private readonly IPublishEndpoint _publisher;
 
-        public OrderStockAvailableConsumer(ILogger<OrderStockAvailableConsumer> logger, IPaymentRepository repo, IPublishEndpoint publisher)
+        public OrderItemsReservedConsumer(ILogger<OrderItemsReservedConsumer> logger, IPaymentRepository repo, IPublishEndpoint publisher)
         {
             _logger = logger;
             _repo = repo;
             _publisher = publisher;
         }
 
-        public async Task Consume(ConsumeContext<OrderStockAvailableEvent> context)
+        public async Task Consume(ConsumeContext<OrderItemsReservedEvent> context)
         {
             var msg = context.Message;
             _logger.LogInformation("OrderStockReservedEvent received: OrderId={OrderId}", msg.OrderId);
@@ -70,7 +70,12 @@ namespace Services.PaymentService.Infrastructure.Consumers
 
                     _logger.LogInformation("Payment succeeded for OrderId={OrderId}", msg.OrderId);
 
-                    await _publisher.Publish(new PaymentSucceededEvent(msg.OrderId, payment.Amount, msg.ProductId, msg.Quantity ,payment.CompletedAt!.Value), context.CancellationToken);
+                    await _publisher.Publish(new PaymentSucceededEvent(
+                        msg.OrderId,
+                        payment.Amount,
+                        msg.Items, 
+                        payment.CompletedAt!.Value
+                    ));
                 }
                 else
                 {
