@@ -1,5 +1,5 @@
-﻿using MediatR;
-using Services.OrderService.Application.Models;
+﻿using BuildingBlocks.Contracts.DTOs;
+using MediatR;
 
 namespace Services.OrderService.Application.Orders.Queries.GetOrderById
 {

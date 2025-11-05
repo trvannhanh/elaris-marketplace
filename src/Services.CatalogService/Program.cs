@@ -154,6 +154,17 @@ app.MapGet("/api/products", async (MongoContext db) =>
     return Results.Ok(products);
 });
 
+app.MapGet("/api/products/{id}", async (MongoContext db, string id) =>
+{
+    var product = await db.Products
+        .Find(x => x.Id == id && !x.IsDeleted)
+        .FirstOrDefaultAsync();
+
+    return product is not null
+        ? Results.Ok(product)
+        : Results.NotFound();
+});
+
 app.MapPost("/api/products", async (MongoContext db, Product p, IPublishEndpoint publisher) =>
 {
     await db.Products.InsertOneAsync(p);

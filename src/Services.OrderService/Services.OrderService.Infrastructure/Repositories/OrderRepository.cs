@@ -34,7 +34,12 @@ namespace Services.OrderService.Infrastructure.Repositories
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
         }
 
-        public IQueryable<Order> Query() => _db.Orders.AsQueryable();
+        public IQueryable<Order> Query()
+        {
+            return _db.Orders
+                .Include(o => o.Items) // ← BẮT BUỘC
+                .AsNoTracking();
+        }
 
         public async Task<int> CountAsync(IQueryable<Order> query, CancellationToken ct)
             => await query.CountAsync(ct);

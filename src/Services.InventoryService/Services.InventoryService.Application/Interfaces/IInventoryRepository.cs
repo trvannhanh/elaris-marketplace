@@ -1,4 +1,5 @@
-﻿using Services.InventoryService.Application.DTOs;
+﻿
+using BuildingBlocks.Contracts.DTOs;
 using Services.InventoryService.Domain.Entities;
 
 namespace Services.InventoryService.Application.Interfaces

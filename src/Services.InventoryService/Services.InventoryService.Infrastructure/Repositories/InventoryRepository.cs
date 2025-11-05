@@ -1,6 +1,6 @@
 ﻿
+using BuildingBlocks.Contracts.DTOs;
 using Microsoft.EntityFrameworkCore;
-using Services.InventoryService.Application.DTOs;
 using Services.InventoryService.Application.Interfaces;
 using Services.InventoryService.Domain.Entities;
 using Services.InventoryService.Infrastructure.Persistence;

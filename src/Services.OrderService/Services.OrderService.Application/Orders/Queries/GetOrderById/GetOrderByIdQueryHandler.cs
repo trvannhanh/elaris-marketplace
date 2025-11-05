@@ -1,7 +1,7 @@
-﻿using Mapster;
+﻿using BuildingBlocks.Contracts.DTOs;
+using Mapster;
 using MediatR;
 using Services.OrderService.Application.Interfaces;
-using Services.OrderService.Application.Models;
 
 namespace Services.OrderService.Application.Orders.Queries.GetOrderById
 {

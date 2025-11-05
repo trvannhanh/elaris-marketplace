@@ -1,8 +1,8 @@
-﻿using BuildingBlocks.Contracts.Events;
+﻿using BuildingBlocks.Contracts.DTOs;
+using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Services.PaymentService.Application.Interfaces;
-using Services.PaymentService.Application.Models;
 using Services.PaymentService.Domain.Entities;
 using System.Net.Http.Json;
 

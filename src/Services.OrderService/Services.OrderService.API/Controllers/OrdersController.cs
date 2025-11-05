@@ -24,25 +24,24 @@ namespace Services.OrderService.API.Controllers
             return CreatedAtAction(nameof(GetOrderById), new { id = result.Id }, result);
         }
 
-        [HttpGet("{orderId:guid}")]
-        public async Task<IActionResult> GetOrderById(Guid orderId)
+        [HttpGet("{orderId:guid}")] 
+        public async Task<IActionResult> GetOrderById(Guid orderId) 
         {
             var result = await _mediator.Send(new GetOrderByIdQuery(orderId));
-            if (result == null) return NotFound();
-            return Ok(result);
+            return result == null ? NotFound() : Ok(result);
         }
 
         [HttpGet]
         public async Task<IActionResult> GetOrders(
             [FromQuery] string? search,
-            [FromQuery] string? productId,
+            [FromQuery] string? userId,
             [FromQuery] string? sortBy,
             [FromQuery] string? sortDirection,
             [FromQuery] int page = 1,  
             [FromQuery] int pageSize = 10)
         {
             var query = new GetOrdersWithFiltersQuery(
-                search, productId, sortBy, sortDirection, page, pageSize);
+                search, userId, sortBy, sortDirection, page, pageSize);
 
             var result = await _mediator.Send(query);
             return Ok(result);

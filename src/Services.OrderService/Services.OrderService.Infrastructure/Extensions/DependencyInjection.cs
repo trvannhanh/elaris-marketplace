@@ -23,6 +23,7 @@ namespace Services.OrderService.Infrastructure.Extensions
             {
                 x.SetKebabCaseEndpointNameFormatter();
 
+                x.AddConsumer<BasketCheckedOutConsumer>();
                 x.AddConsumer<OrderItemsReservedConsumer>();
                 x.AddConsumer<OrderStockRejectedConsumer>();
                 x.AddConsumer<InventoryUpdatedConsumer>();
@@ -35,7 +36,7 @@ namespace Services.OrderService.Infrastructure.Extensions
                 x.AddEntityFrameworkOutbox<OrderDbContext>(o =>
                 {  
                     o.UsePostgres();
-                    o.QueryDelay = TimeSpan.FromSeconds(1);
+                    o.QueryDelay = TimeSpan.FromSeconds(5);
                     o.DuplicateDetectionWindow = TimeSpan.FromMinutes(1);
                     
                     o.UseBusOutbox();
