@@ -13,6 +13,7 @@ using Services.OrderService.Application.Common.Mappings;
 using MapsterMapper;
 using Services.OrderService.API.Middleware;
 using MassTransit;
+using Services.OrderService.Infrastructure.Saga;
 
 
 
@@ -62,6 +63,9 @@ config.Scan(typeof(OrderMappingConfig).Assembly);
 
 builder.Services.AddSingleton(config);
 builder.Services.AddScoped<IMapper, ServiceMapper>();
+
+//Saga
+builder.Services.AddOrderSaga(builder.Configuration);
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
