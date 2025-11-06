@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Services.OrderService.Application.Interfaces;
 using Services.OrderService.Domain.Entities;
 using Services.OrderService.Infrastructure.Persistence;
@@ -28,10 +29,17 @@ namespace Services.OrderService.Infrastructure.Repositories
 
         public async Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _db.Orders.FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+            return await _db.Orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
         }
 
-        public IQueryable<Order> Query() => _db.Orders.AsQueryable();
+        public IQueryable<Order> Query()
+        {
+            return _db.Orders
+                .Include(o => o.Items) // ← BẮT BUỘC
+                .AsNoTracking();
+        }
 
         public async Task<int> CountAsync(IQueryable<Order> query, CancellationToken ct)
             => await query.CountAsync(ct);

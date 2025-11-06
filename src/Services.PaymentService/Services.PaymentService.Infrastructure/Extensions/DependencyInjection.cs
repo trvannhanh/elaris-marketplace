@@ -21,17 +21,12 @@ namespace Services.PaymentService.Infrastructure.Extensions
             // MassTransit + consumer
             services.AddMassTransit(x =>
             {
-                x.AddConsumer<OrderStockAvailableConsumer>();
+                x.AddConsumer<AuthorizePaymentConsumer>();
+                x.AddConsumer<RefundPaymentConsumer>();
 
                 x.UsingRabbitMq((context, cfg) =>
                 {
-                    cfg.Host("rabbitmq", "/", h =>
-                    {
-                        h.Username("guest");
-                        h.Password("guest");
-                    });
-
-                    // auto configure endpoints for consumer
+                    cfg.Host("rabbitmq", "/", h => { h.Username("guest"); h.Password("guest"); });
                     cfg.ConfigureEndpoints(context);
                 });
             });

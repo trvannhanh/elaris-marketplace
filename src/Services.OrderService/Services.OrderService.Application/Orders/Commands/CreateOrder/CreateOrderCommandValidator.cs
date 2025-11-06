@@ -11,8 +11,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
     {
         public CreateOrderCommandValidator()
         {
-            RuleFor(x => x.ProductId).NotEmpty();
-            RuleFor(x => x.Quantity).GreaterThan(0);
+            RuleFor(x => x.UserId).NotEmpty();
             RuleFor(x => x.TotalPrice).GreaterThan(0);
         }
     }

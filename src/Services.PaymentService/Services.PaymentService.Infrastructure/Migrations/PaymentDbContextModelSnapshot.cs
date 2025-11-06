@@ -40,8 +40,17 @@ namespace Services.PaymentService.Infrastructure.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RefundReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RefundedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TransactionId")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

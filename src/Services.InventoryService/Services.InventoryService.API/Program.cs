@@ -9,6 +9,8 @@ using OpenTelemetry.Metrics;
 using Mapster;
 using MapsterMapper;
 using Services.InventoryService.Application.Common.Mappings;
+using Services.InventoryService.Application.Interfaces;
+using Services.InventoryService.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +72,9 @@ builder.Services.AddSwaggerGen(c =>
 // MassTransit wait until started
 builder.Services.AddOptions<MassTransit.MassTransitHostOptions>()
     .Configure(options => { options.WaitUntilStarted = true; });
+
+builder.Services.AddHttpClient<IInventoryRepository, InventoryRepository>();
+
 
 var app = builder.Build();
 

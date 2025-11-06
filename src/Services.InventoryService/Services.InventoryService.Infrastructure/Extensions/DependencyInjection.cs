@@ -24,28 +24,15 @@ namespace Services.InventoryService.Infrastructure.Extensions
 
             services.AddMassTransit(x =>
             {
-                x.SetKebabCaseEndpointNameFormatter();
 
+                x.AddConsumer<ReserveInventoryConsumer>();
+                x.AddConsumer<ReleaseInventoryConsumer>();
+                x.AddConsumer<ConfirmInventoryConsumer>();
                 x.AddConsumer<ProductCreatedConsumer>();
-                x.AddConsumer<OrderCreatedConsumer>();
-                x.AddConsumer<PaymentSucceededConsumer>();
-
-                // ✅ Quan trọng: Add consumer từ Infrastructure assembly
-                //x.AddConsumers(Assembly.GetExecutingAssembly());
 
                 x.UsingRabbitMq((context, cfg) =>
                 {
-                    cfg.Host("rabbitmq", "/", h =>
-                    {
-                        h.Username("guest");
-                        h.Password("guest");
-                    });
-
-                    cfg.ReceiveEndpoint("inventory-product-created", e =>
-                    {
-                        e.ConfigureConsumer<ProductCreatedConsumer>(context);
-                    });
-
+                    cfg.Host("rabbitmq", "/", h => { h.Username("guest"); h.Password("guest"); });
                     cfg.ConfigureEndpoints(context);
                 });
             });

@@ -5,14 +5,23 @@
     <ProjectReference Include="..\Services.OrderService.Domain\Services.OrderService.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.5.5" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.5" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.13.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.13.0" />
-  </ItemGroup>
+	<ItemGroup>
+		<!-- DÙNG 8.0.x CHO .NET 8 -->
+		<PackageReference Include="MassTransit.Quartz" Version="8.2.5" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10" />
+
+		<!-- MassTransit 8.2.5 – PHIÊN BẢN ỔN ĐỊNH NHẤT -->
+		<PackageReference Include="MassTransit" Version="8.2.5" />
+		<PackageReference Include="MassTransit.RabbitMQ" Version="8.2.5" />
+		<PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.2.5" />
+		<PackageReference Include="MassTransit.MongoDb" Version="8.2.5" />
+
+		<!-- OpenTelemetry – DÙNG 1.9 (hỗ trợ net8.0) -->
+		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0" />
+	</ItemGroup>
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>

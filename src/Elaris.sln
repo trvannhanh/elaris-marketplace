@@ -39,17 +39,17 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.PaymentService.API
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.PaymentService.Domain", "Services.PaymentService\Services.PaymentService.Domain\Services.PaymentService.Domain.csproj", "{AC7164BF-8508-4559-8386-DF3971506C27}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services.PaymentService.Infrastructure", "Services.PaymentService\Services.PaymentService.Infrastructure\Services.PaymentService.Infrastructure.csproj", "{516DABA7-0F03-44DE-9161-FC3A4ACFC10B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.PaymentService.Infrastructure", "Services.PaymentService\Services.PaymentService.Infrastructure\Services.PaymentService.Infrastructure.csproj", "{516DABA7-0F03-44DE-9161-FC3A4ACFC10B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services.PaymentService.Application", "Services.PaymentService\Services.PaymentService.Application\Services.PaymentService.Application.csproj", "{8246CD2A-2F22-461C-9097-7EE536F24B85}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.PaymentService.Application", "Services.PaymentService\Services.PaymentService.Application\Services.PaymentService.Application.csproj", "{8246CD2A-2F22-461C-9097-7EE536F24B85}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services.BasketService", "Services.BasketService", "{4906A9BC-5C3C-46A7-92D6-093B6979E04E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services.BasketService.API", "Services.BasketService\Services.BasketService.API\Services.BasketService.API.csproj", "{6C016301-7EA5-4B91-96BF-80FBC11145EB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.BasketService.API", "Services.BasketService\Services.BasketService.API\Services.BasketService.API.csproj", "{6C016301-7EA5-4B91-96BF-80FBC11145EB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services.BasketService.Application", "Services.BasketService\Services.BasketService.Application\Services.BasketService.Application.csproj", "{A36584D6-0977-49D3-A00F-822D8751FC77}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.BasketService.Application", "Services.BasketService\Services.BasketService.Application\Services.BasketService.Application.csproj", "{A36584D6-0977-49D3-A00F-822D8751FC77}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services.BasketService.Infrastructure", "Services.BasketService\Services.BasketService.Infrastructure\Services.BasketService.Infrastructure.csproj", "{FBB5F0E1-4BB4-4F01-827B-18CF7D81E738}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.BasketService.Infrastructure", "Services.BasketService\Services.BasketService.Infrastructure\Services.BasketService.Infrastructure.csproj", "{FBB5F0E1-4BB4-4F01-827B-18CF7D81E738}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

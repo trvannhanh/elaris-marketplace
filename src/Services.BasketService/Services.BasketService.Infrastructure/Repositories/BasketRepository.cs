@@ -8,7 +8,7 @@ namespace Services.BasketService.Infrastructure.Repositories
     public class BasketRepository : IBasketRepository
     {
         private readonly IDatabase _db;
-        private const int BasketTtlMinutes = 30;
+        private readonly TimeSpan BasketTTL = TimeSpan.FromDays(7);
 
         public BasketRepository(IConnectionMultiplexer redis)
         {
@@ -17,26 +17,34 @@ namespace Services.BasketService.Infrastructure.Repositories
 
         private string Key(string userId) => $"basket:{userId}";
 
-        public async Task<Basket?> GetBasketAsync(string userId, CancellationToken ct = default)
+        public async Task<List<BasketItem>> GetBasketAsync(string userId, CancellationToken ct = default)
         {
-            var key = Key(userId);
-            var entries = await _db.HashGetAllAsync(key);
-            if (entries.Length == 0) return null;
+            var hashKey = Key(userId);
+            var entries = await _db.HashGetAllAsync(hashKey);
 
-            return new Basket
-            {
-                UserId = userId,
-                Items = entries.Select(e =>
-                    JsonSerializer.Deserialize<BasketItem>(e.Value!)!).ToList()
-            };
+            if (entries.Length == 0)
+                return new List<BasketItem>();
+
+            var items = entries.Select(e =>
+                JsonSerializer.Deserialize<BasketItem>(e.Value!)!).ToList();
+
+            // Optional: refresh TTL on read
+            await _db.KeyExpireAsync(hashKey, BasketTTL);
+
+            return items;
         }
 
-        public async Task<bool> AddOrUpdateItemAsync(string userId, BasketItem item, CancellationToken ct = default)
+        public async Task AddOrUpdateItemAsync(string userId, BasketItem item, CancellationToken ct = default)
         {
-            var key = Key(userId);
-            await _db.HashSetAsync(key, item.ProductId, JsonSerializer.Serialize(item));
-            await _db.KeyExpireAsync(key, TimeSpan.FromMinutes(BasketTtlMinutes));
-            return true;
+            var hashKey = Key(userId);
+
+            // Save item
+            await _db.HashSetAsync(hashKey,
+                item.ProductId,
+                JsonSerializer.Serialize(item));
+
+            // Reset TTL every update
+            await _db.KeyExpireAsync(hashKey, BasketTTL);
         }
 
         public async Task<bool> RemoveItemAsync(string userId, string productId, CancellationToken ct = default)

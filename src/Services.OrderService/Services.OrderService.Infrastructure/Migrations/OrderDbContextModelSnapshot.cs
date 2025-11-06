@@ -17,7 +17,7 @@ namespace Services.OrderService.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.10")
+                .HasAnnotation("ProductVersion", "8.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -63,6 +63,8 @@ namespace Services.OrderService.Infrastructure.Migrations
                         .HasColumnType("bytea");
 
                     b.HasKey("Id");
+
+                    b.HasAlternateKey("MessageId", "ConsumerId");
 
                     b.HasIndex("Delivered");
 
@@ -196,8 +198,48 @@ namespace Services.OrderService.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CancellReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Orders");
+                });
+
+            modelBuilder.Entity("Services.OrderService.Domain.Entities.OrderItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ProductId")
                         .IsRequired()
@@ -206,27 +248,27 @@ namespace Services.OrderService.Infrastructure.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TotalPrice")
-                        .HasColumnType("numeric");
-
                     b.HasKey("Id");
 
-                    b.ToTable("Orders");
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("OrderItems");
                 });
 
-            modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
+            modelBuilder.Entity("Services.OrderService.Domain.Entities.OrderItem", b =>
                 {
-                    b.HasOne("MassTransit.EntityFrameworkCoreIntegration.OutboxState", null)
-                        .WithMany()
-                        .HasForeignKey("OutboxId");
+                    b.HasOne("Services.OrderService.Domain.Entities.Order", "Order")
+                        .WithMany("Items")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.HasOne("MassTransit.EntityFrameworkCoreIntegration.InboxState", null)
-                        .WithMany()
-                        .HasForeignKey("InboxMessageId", "InboxConsumerId")
-                        .HasPrincipalKey("MessageId", "ConsumerId");
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("Services.OrderService.Domain.Entities.Order", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

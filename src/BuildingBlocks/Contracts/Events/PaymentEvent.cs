@@ -1,17 +1,16 @@
 ﻿namespace BuildingBlocks.Contracts.Events
 {
     public record PaymentSucceededEvent(
-        Guid OrderId,
+        Guid OrderId, 
         decimal Amount,
-        string ProductId,
-        int Quantity,
-        DateTime PaidAt
+        List<BasketItemEvent> Items, 
+        DateTime CompletedAt
     );
 
     public record PaymentFailedEvent(
-    Guid OrderId,
-    decimal Amount,
-    string Reason,
-    DateTime FailedAt
+        Guid OrderId, 
+        decimal Amount, 
+        string Reason, 
+        DateTime FailedAt
     );
 }
