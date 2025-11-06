@@ -6,6 +6,10 @@
         public string UserId { get; set; } = default!;
         public decimal TotalPrice { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+        
+        public DateTime? CancelledAt { get; set; }
+        public string? CancellReason { get; set; }
 
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
 

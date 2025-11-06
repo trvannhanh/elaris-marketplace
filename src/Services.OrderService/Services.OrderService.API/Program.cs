@@ -13,7 +13,6 @@ using Services.OrderService.Application.Common.Mappings;
 using MapsterMapper;
 using Services.OrderService.API.Middleware;
 using MassTransit;
-using Services.OrderService.Infrastructure.Saga;
 
 
 
@@ -23,10 +22,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Connection
 var conn = builder.Configuration.GetConnectionString("DefaultConnection")
            ?? Environment.GetEnvironmentVariable("DEFAULT_CONNECTION");
-
 // Infra setup
-builder.Services.AddInfrastructure(conn);
-
+builder.Services.AddInfrastructure(conn, builder.Configuration);
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Services.OrderService"))
@@ -64,8 +61,6 @@ config.Scan(typeof(OrderMappingConfig).Assembly);
 builder.Services.AddSingleton(config);
 builder.Services.AddScoped<IMapper, ServiceMapper>();
 
-//Saga
-builder.Services.AddOrderSaga(builder.Configuration);
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -76,8 +71,6 @@ builder.Services.AddSwaggerGen(c =>
     c.AddServer(new OpenApiServer { Url = "/order" });
 });
 
-// MassTransit
-builder.Services.AddMassTransitHostedService(true);
 
 var app = builder.Build();
 

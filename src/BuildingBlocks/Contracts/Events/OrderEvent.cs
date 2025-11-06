@@ -5,7 +5,8 @@
         string UserId,
         decimal TotalPrice,
         DateTime CreatedAt,
-        string Status
+        string Status,
+        List<BasketItemEvent> Items
     );
 
     public record OrderStatusUpdatedEvent(

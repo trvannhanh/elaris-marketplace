@@ -10,5 +10,9 @@ namespace Services.OrderService.Application.Orders.DTOs
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+
+        public DateTime? CancelledAt { get; set; }
+        public string? CancellReason { get; set; }
     }
 }

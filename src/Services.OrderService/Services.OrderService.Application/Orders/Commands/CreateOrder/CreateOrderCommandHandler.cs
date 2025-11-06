@@ -42,19 +42,23 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
 
 
 
+            // 1. Lưu Order vào DB
             await _orderRepository.AddAsync(order, cancellationToken);
 
 
             _logger.LogInformation("Order . Publishing event...");
 
+            // 2. Tạo event
             var eventToPublish = new OrderCreatedEvent(
                 order.Id,
                 order.UserId,
                 order.TotalPrice,
                 order.CreatedAt,
-                order.Status.ToString()
+                order.Status.ToString(),
+                order.Items.Select(i => new BasketItemEvent(i.ProductId, i.Name, i.Price, i.Quantity)).ToList()
             );
 
+            // 3. Publish → MassTransit sẽ tự lưu vào Outbox + DB transaction
             try
             {
                 await _publishEndpoint.Publish(eventToPublish, cancellationToken);
@@ -65,8 +69,10 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 _logger.LogError(ex, "Failed to publish OrderCreatedEvent ");
             }
 
-
+            // 4. SaveChanges → Lưu cả Order + OutboxMessage trong 1 transaction
             await _orderRepository.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Order {OrderId} created and OrderCreatedEvent published via Outbox", order.Id);
 
             return order;
         }

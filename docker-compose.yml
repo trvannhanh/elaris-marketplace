@@ -147,12 +147,15 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=ordersql;Port=5432;Database=elaris_orderdb;Username=elaris;Password=elaris_pwd
+      - ConnectionStrings__Mongo=mongodb://mongo:27017
     ports:
       - "5003:8080"
     depends_on:
       ordersql:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      mongo:  
         condition: service_healthy
     networks:
       - elaris_net
