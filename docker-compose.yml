@@ -231,6 +231,7 @@ services:
       - catalogservice
       - orderservice
       - paymentservice
+      - otel-collector
     networks:
       - elaris_net
 

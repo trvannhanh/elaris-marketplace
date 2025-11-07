@@ -9,9 +9,7 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
     // ======== CÁC TRẠNG THÁI CỦA ĐƠN HÀNG ========
     public State AwaitingInventory { get; private set; } = null!;
     public State InventoryReserved { get; private set; } = null!;
-    public State AwaitingPayment { get; private set; } = null!;
     public State PaymentProcessed { get; private set; } = null!;
-    public State Completing { get; private set; } = null!;
     public State Completed { get; private set; } = null!;
     public State Failed { get; private set; } = null!;
 
@@ -69,34 +67,41 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
                     ctx.Saga.Items = ctx.Message.Items;
                     ctx.Saga.CreatedAt = ctx.Message.CreatedAt;
                 })
-                // Hẹn giờ timeout cho inventory
-                .Schedule(InventoryTimeout, ctx => new InventoryTimeout(ctx.Saga.OrderId))
                 // Gửi lệnh đến Inventory Service để dự trữ hàng
                 .Publish(ctx => new ReserveInventoryCommand(
                     ctx.Saga.OrderId,
                     ctx.Saga.Items.Select(i => new InventoryItemReserve(i.ProductId, i.Quantity)).ToList()
                 ))
+                // Hẹn giờ timeout cho inventory
+                .Schedule(InventoryTimeout, ctx => new InventoryTimeout(ctx.Saga.OrderId))
                 .TransitionTo(AwaitingInventory) // chuyển sang trạng thái chờ inventory
         );
 
         // --- Khi đang chờ Inventory phản hồi ---
         During(AwaitingInventory,
 
-            // ✅ Khi Inventory báo đã giữ hàng thành công
+                // ✅ Khi Inventory báo đã giữ hàng thành công
             When(ItemsReserved)
-                .Unschedule(InventoryTimeout)
-                .Then(ctx => ctx.Saga.ReservedAt = DateTime.UtcNow)
-                .Schedule(PaymentTimeout, ctx => new PaymentTimeout(ctx.Saga.OrderId))
-                .Publish(ctx => new AuthorizePaymentCommand(ctx.Saga.OrderId, ctx.Saga.TotalPrice, ctx.Saga.UserId))
-                .TransitionTo(AwaitingPayment),
+                    .Unschedule(InventoryTimeout)
+                    .Then(ctx => ctx.Saga.ReservedAt = DateTime.UtcNow)
+                    // Gửi lệnh pre-authorize payment
+                    .Publish(ctx => new AuthorizePaymentCommand(
+                        ctx.Saga.OrderId,
+                        ctx.Saga.TotalPrice,
+                        ctx.Saga.UserId
+                    ))
+                    // Thiết lập timeout cho payment
+                    .Schedule(PaymentTimeout, ctx => new PaymentTimeout(ctx.Saga.OrderId))
+                    .TransitionTo(InventoryReserved),
 
             // ❌ Khi Inventory báo thiếu hàng
             When(StockRejected)
-                .Unschedule(InventoryTimeout)
-                .Then(ctx => ctx.Saga.CanceledAt = DateTime.UtcNow)
-                .Publish(ctx => new CancelOrderCommand(ctx.Saga.OrderId, ctx.Message.Reason))
-                .TransitionTo(Failed)
-                .Finalize(),
+                    .Unschedule(InventoryTimeout)
+                    .Then(ctx => ctx.Saga.CanceledAt = DateTime.UtcNow)
+                    .Publish(ctx => new CancelOrderCommand(ctx.Saga.OrderId, ctx.Message.Reason))
+                    .TransitionTo(Failed)
+                    .Then(ctx => Console.WriteLine($"[Saga] Order {ctx.Saga.OrderId} failed: StockRejected"))
+                    .Finalize(),
 
             // ⏱ Khi quá thời gian chờ Inventory mà chưa có phản hồi
             When(InventoryTimeout.Received)
@@ -105,19 +110,19 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
                 .Finalize()
         );
 
-        // --- Khi đang chờ Payment ---
-        During(AwaitingPayment,
+        // --- Khi hàng đã được giữ thành công, chờ kết quả thanh toán (pre-authorize) ---
+        During(InventoryReserved,
 
-            // ✅ Thanh toán thành công
+            // ✅ Thanh toán tạm giữ thành công
             When(PaymentSucceeded)
                 .Unschedule(PaymentTimeout)
                 .Then(ctx => ctx.Saga.PaidAt = DateTime.UtcNow)
-                // Báo Inventory trừ hàng thật
+                .TransitionTo(PaymentProcessed)
+                // Sau khi payment pre-authorized xong, xác nhận trừ hàng thật (capture)
                 .Publish(ctx => new ConfirmInventoryReservationCommand(
                     ctx.Saga.OrderId,
                     ctx.Saga.Items.Select(i => new InventoryItemReserve(i.ProductId, i.Quantity)).ToList()
-                ))
-                .TransitionTo(Completing),
+                )),
 
             // ❌ Thanh toán thất bại
             When(PaymentFailed)
@@ -129,20 +134,31 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
                 ))
                 .Publish(ctx => new CancelOrderCommand(ctx.Saga.OrderId, ctx.Message.Reason))
                 .TransitionTo(Failed)
+                .Finalize(),
+
+            // ⏱ Timeout payment
+            When(PaymentTimeout.Received)
+                .Publish(ctx => new CancelOrderCommand(ctx.Saga.OrderId, "Payment timeout"))
+                .Publish(ctx => new ReleaseInventoryCommand(
+                    ctx.Saga.OrderId,
+                    ctx.Saga.Items.Select(i => new InventoryItemReserve(i.ProductId, i.Quantity)).ToList()
+                ))
+                .TransitionTo(Failed)
                 .Finalize()
         );
 
-        // --- Khi đang hoàn tất (trừ hàng thật, hoàn tất đơn) ---
-        During(Completing,
 
-            // ✅ Cập nhật kho thành công
+        // --- Khi Payment đã được pre-authorize, đang xác nhận trừ hàng thật ---
+        During(PaymentProcessed,
+
+            // ✅ Cập nhật kho thành công (capture thành công)
             When(InventoryUpdated)
                 .Then(ctx => ctx.Saga.CompletedAt = DateTime.UtcNow)
                 .Publish(ctx => new CompleteOrderCommand(ctx.Saga.OrderId))
                 .TransitionTo(Completed)
                 .Finalize(),
 
-            // ❌ Trừ kho thất bại (refund lại tiền)
+            // ❌ Trừ kho thất bại → Refund tiền + Cancel đơn
             When(InventoryUpdateFailed)
                 .Then(ctx => ctx.Saga.CanceledAt = DateTime.UtcNow)
                 .Publish(ctx => new RefundPaymentCommand(ctx.Saga.OrderId, ctx.Message.Reason))
