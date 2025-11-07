@@ -8,6 +8,7 @@ using System.Text;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using OpenTelemetry.Trace;
+using Services.IdentityService.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
@@ -25,10 +26,13 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 {
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
-    // tinh chỉnh theo nhu cầu
 })
 .AddEntityFrameworkStores<AppDbContext>()
+.AddPasswordValidator<PasswordValidator<AppUser>>() 
 .AddDefaultTokenProviders();
+
+// Override password hasher bằng Argon2
+builder.Services.AddScoped<IPasswordHasher<AppUser>, Argon2PasswordHasher<AppUser>>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
