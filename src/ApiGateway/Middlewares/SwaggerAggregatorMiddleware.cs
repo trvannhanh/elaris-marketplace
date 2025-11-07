@@ -10,6 +10,7 @@ namespace ApiGateway.Middlewares
         private readonly RequestDelegate _next;
         private readonly ILogger<SwaggerAggregatorMiddleware> _logger;
 
+        // Các service nội bộ và endpoint swagger.json của chúng
         private static readonly Dictionary<string, string> _swaggerSources = new()
         {
             { "identity",  "http://identityservice:8080/swagger/v1/swagger.json" },
@@ -28,70 +29,121 @@ namespace ApiGateway.Middlewares
 
         public async Task InvokeAsync(HttpContext context)
         {
-            var path = context.Request.Path.Value?.TrimEnd('/').ToLowerInvariant();
-
-            if (path?.StartsWith("/swagger/") == true && path.EndsWith("/swagger.json"))
+            // Chỉ xử lý khi gọi /swagger/v1/swagger.json
+            if (context.Request.Path.Equals("/swagger/v1/swagger.json", StringComparison.OrdinalIgnoreCase))
             {
-                var serviceKey = path.Split('/')[2]; // e.g. swagger/identity/swagger.json
-
-                if (_swaggerSources.TryGetValue(serviceKey, out var swaggerUrl))
+                var openApiDoc = new OpenApiDocument
                 {
-                    using var httpClient = new HttpClient();
+                    Info = new OpenApiInfo
+                    {
+                        Title = "Elaris Unified API Gateway",
+                        Version = "v1",
+                        Description = "Aggregated OpenAPI for all Elaris services"
+                    },
+                    Paths = new OpenApiPaths(),
+                    Components = new OpenApiComponents()
+                };
+
+                using var httpClient = new HttpClient();
+
+                foreach (var service in _swaggerSources)
+                {
                     try
                     {
-                        var json = await httpClient.GetStringAsync(swaggerUrl);
+                        _logger.LogInformation("Fetching Swagger from {Service}...", service.Key);
+                        var json = await httpClient.GetStringAsync(service.Value);
                         var reader = new OpenApiStringReader();
                         var doc = reader.Read(json, out _);
 
-                        // Thêm JWT security vào từng document
-                        doc.Components ??= new OpenApiComponents();
-                        doc.Components.SecuritySchemes = new Dictionary<string, OpenApiSecurityScheme>
+                        // Merge các Paths
+                        foreach (var path in doc.Paths)
                         {
-                            ["Bearer"] = new OpenApiSecurityScheme
-                            {
-                                Type = SecuritySchemeType.Http,
-                                Scheme = "bearer",
-                                BearerFormat = "JWT",
-                                In = ParameterLocation.Header,
-                                Description = "Enter JWT token (Bearer {token})"
-                            }
-                        };
-                        doc.SecurityRequirements.Add(new OpenApiSecurityRequirement
-                        {
-                            {
-                                new OpenApiSecurityScheme
-                                {
-                                    Reference = new OpenApiReference
-                                    {
-                                        Type = ReferenceType.SecurityScheme,
-                                        Id = "Bearer"
-                                    }
-                                },
-                                Array.Empty<string>()
-                            }
-                        });
+                            var newPath = $"/{service.Key}{path.Key}";
+                            openApiDoc.Paths[newPath] = path.Value;
+                        }
 
-                        context.Response.ContentType = "application/json";
-                        var sb = new StringBuilder();
-                        var writer = new OpenApiJsonWriter(new StringWriter(sb));
-                        doc.SerializeAsV3(writer);
-                        await context.Response.WriteAsync(sb.ToString());
-                        return;
+                        // Merge các Schemas
+                        if (doc.Components?.Schemas != null)
+                        {
+                            foreach (var kv in doc.Components.Schemas)
+                            {
+                                var newKey = $"{service.Key}_{kv.Key}";
+                                openApiDoc.Components.Schemas[newKey] = kv.Value;
+
+                                // Cập nhật các $ref để không bị conflict
+                                foreach (var p in openApiDoc.Paths.Values)
+                                {
+                                    foreach (var op in p.Operations.Values)
+                                    {
+                                        if (op.RequestBody?.Content != null)
+                                        {
+                                            foreach (var media in op.RequestBody.Content.Values)
+                                            {
+                                                if (media.Schema?.Reference?.Id == kv.Key)
+                                                    media.Schema.Reference.Id = newKey;
+                                            }
+                                        }
+
+                                        if (op.Responses != null)
+                                        {
+                                            foreach (var resp in op.Responses.Values)
+                                            {
+                                                foreach (var media in resp.Content.Values)
+                                                {
+                                                    if (media.Schema?.Reference?.Id == kv.Key)
+                                                        media.Schema.Reference.Id = newKey;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        _logger.LogInformation("✅ Added {Service} APIs", service.Key);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to fetch swagger for {Service}", serviceKey);
-                        context.Response.StatusCode = 500;
-                        await context.Response.WriteAsync($"Error fetching Swagger for {serviceKey}");
-                        return;
+                        _logger.LogWarning(ex, "⚠️ Failed to fetch Swagger from {Service}", service.Key);
                     }
                 }
-                else
+
+                // Thêm Bearer token vào global security
+                openApiDoc.Components.SecuritySchemes = new Dictionary<string, OpenApiSecurityScheme>
                 {
-                    context.Response.StatusCode = 404;
-                    await context.Response.WriteAsync("Swagger not found");
-                    return;
-                }
+                    ["Bearer"] = new OpenApiSecurityScheme
+                    {
+                        Type = SecuritySchemeType.Http,
+                        Scheme = "bearer",
+                        BearerFormat = "JWT",
+                        In = ParameterLocation.Header,
+                        Description = "Enter JWT token. Example: 'Bearer {your token}'",
+                        Name = "Authorization"
+                    }
+                };
+
+                openApiDoc.SecurityRequirements.Add(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+
+                // Xuất ra file JSON tổng hợp
+                context.Response.ContentType = "application/json";
+                var sb = new StringBuilder();
+                var writer = new OpenApiJsonWriter(new StringWriter(sb));
+                openApiDoc.SerializeAsV3(writer);
+                await context.Response.WriteAsync(sb.ToString());
+                return;
             }
 
             await _next(context);
