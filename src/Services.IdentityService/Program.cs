@@ -9,6 +9,7 @@ using Microsoft.OpenApi.Models;
 using System.Reflection;
 using OpenTelemetry.Trace;
 using Services.IdentityService.Security;
+using Services.IdentityService;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
@@ -33,6 +34,17 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 
 // Override password hasher bằng Argon2
 builder.Services.AddScoped<IPasswordHasher<AppUser>, Argon2PasswordHasher<AppUser>>();
+
+// ✅ Add Duende IdentityServer
+builder.Services.AddIdentityServer(options =>
+{
+    options.EmitStaticAudienceClaim = true;
+})
+.AddAspNetIdentity<AppUser>()
+.AddInMemoryIdentityResources(IdentityServerConfig.IdentityResources)
+.AddInMemoryApiScopes(IdentityServerConfig.ApiScopes)
+.AddInMemoryClients(IdentityServerConfig.Clients)
+.AddSigningCredential(RsaKeyProvider.GetSigningCredentials());
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
@@ -115,26 +127,26 @@ builder.Services.AddOpenTelemetry()
          .AddConsoleExporter();
     });
 
+builder.Services.AddHttpClient();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-    app.UseSwagger();
 
-    app.UseSwaggerUI(c =>
-    {
-        // URL Swagger JSON thông qua gateway (qua /identity)
-        c.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity API V1");
-        c.RoutePrefix = "swagger";
-    });
-}
+app.UseDeveloperExceptionPage();
+app.UseSwagger();
+
+app.UseSwaggerUI(c =>
+{
+    // URL Swagger JSON thông qua gateway (qua /identity)
+    c.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity API V1");
+    c.RoutePrefix = "swagger";
+
+});
+
 
 using (var scope = app.Services.CreateScope())
 {
@@ -146,7 +158,7 @@ using (var scope = app.Services.CreateScope())
 
 
 
-app.UseAuthentication();
+app.UseIdentityServer();
 app.UseAuthorization();
 
 app.MapControllers();
