@@ -50,7 +50,27 @@ namespace Services.IdentityService
                         IdentityServerConstants.StandardScopes.Profile,
                         "elaris.api"
                     }
-                } 
+                },
+
+                new Client
+                {
+                    ClientId = "elaris_bff",
+                    ClientName = "Elaris Web BFF Client",
+                    ClientSecrets = { new Secret("secret".Sha256()) },
+
+                    AllowedGrantTypes = GrantTypes.Code,
+                    RequirePkce = true,
+                    RequireClientSecret = false,
+
+                    RedirectUris = { "http://localhost:5000/signin-oidc" },
+                    PostLogoutRedirectUris = { "http://localhost:5000/signout-callback-oidc" },
+                    AllowedCorsOrigins = { "http://localhost:5000" },
+
+                    AllowedScopes = { "openid", "profile", "email", "elaris.api", "offline_access" },
+                    AllowOfflineAccess = true,
+                    AccessTokenLifetime = 3600,
+                    AlwaysIncludeUserClaimsInIdToken = true
+                }
             };
     }
 }

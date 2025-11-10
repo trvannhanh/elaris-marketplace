@@ -1,4 +1,5 @@
 ﻿using ApiGateway.Middlewares;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -20,19 +21,38 @@ var builder = WebApplication.CreateBuilder(args);
 //Serilog
 builder.Host.UseSerilog();
 
+
+// IdentityServer authority-based validation, BFF
+//tự động fetch public key từ IdentityServer qua endpoint /.well-known/openid-configuration/jwks
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = "Cookies";         // BFF: Cookie lưu session người dùng
+    options.DefaultChallengeScheme = "oidc";   // Khi cần login → dùng OpenID Connect
+})
+.AddCookie("Cookies")
+.AddOpenIdConnect("oidc", options =>
+{
+    options.Authority = "http://localhost:5001";  // IdentityService (Duende)
+    options.ClientId = "elaris_bff";
+    options.ResponseType = "code";
+    options.SaveTokens = true;
+    options.RequireHttpsMetadata = false;
+    options.Scope.Add("openid");
+    options.Scope.Add("profile");
+    options.Scope.Add("email");
+    options.Scope.Add("elaris.api");
+    options.Scope.Add("offline_access");
+})
+.AddJwtBearer("JwtBearer", options =>
+{
+    options.Authority = "http://identityservice:8080"; // dùng cho internal API call
+    options.Audience = "elaris.api";
+    options.RequireHttpsMetadata = false;
+});
+
 // Reverse Proxy 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
-
-// IdentityServer authority-based validation
-//tự động fetch public key từ IdentityServer qua endpoint /.well-known/openid-configuration/jwks
-builder.Services.AddAuthentication("JwtBearer")
-    .AddJwtBearer("JwtBearer", options =>
-    {
-        options.Authority = "http://identityservice:8080"; // địa chỉ nội bộ trong Docker
-        options.Audience = "elaris.api";                   // scope khớp với IdentityServerConfig
-        options.RequireHttpsMetadata = false;              // dev only
-    });
 
 
 // Authorization
@@ -120,6 +140,14 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
     c.DocumentTitle = "Elaris Marketplace - All APIs";
 
+});
+
+app.MapGet("/login", async context =>
+{
+    await context.ChallengeAsync("oidc", new AuthenticationProperties
+    {
+        RedirectUri = "/"
+    });
 });
 
 // Reverse Proxy
