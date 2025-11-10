@@ -18,6 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<MongoContext>();
 
+
+
 // Duende IdentityServer Authorize
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -155,6 +157,20 @@ builder.Host.UseSerilog((ctx, lc) =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var ctx = scope.ServiceProvider.GetRequiredService<MongoContext>();
+    var indexKeys = Builders<Product>.IndexKeys
+        .Text(p => p.Name)
+        .Text(p => p.Description);
+    await ctx.Products.Indexes.CreateOneAsync(new CreateIndexModel<Product>(indexKeys));
+
+    var compoundKeys = Builders<Product>.IndexKeys
+        .Ascending(p => p.Price)
+        .Descending(p => p.CreatedAt);
+    await ctx.Products.Indexes.CreateOneAsync(new CreateIndexModel<Product>(compoundKeys));
+}
+
 // Endpoint cho Prometheus scrape metrics
 app.UseOpenTelemetryPrometheusScrapingEndpoint();  // /metrics
 
@@ -170,10 +186,55 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // CRUD
-app.MapGet("/api/products", async (MongoContext db) =>
+app.MapGet("/api/products", async ([AsParameters] ProductQueryDto query, MongoContext db) =>
 {
-    var products = await db.Products.Find(x => !x.IsDeleted).ToListAsync();
-    return Results.Ok(products);
+    var filterBuilder = Builders<Product>.Filter;
+    var filter = filterBuilder.Eq(p => p.IsDeleted, false);
+
+    // 🔍 Fulltext search (Name / Description)
+    if (!string.IsNullOrEmpty(query.Search))
+    {
+        var textFilter = filterBuilder.Or(
+            filterBuilder.Regex(p => p.Name, new MongoDB.Bson.BsonRegularExpression(query.Search, "i")),
+            filterBuilder.Regex(p => p.Description, new MongoDB.Bson.BsonRegularExpression(query.Search, "i"))
+        );
+        filter &= textFilter;
+    }
+
+    // 💰 Price range
+    if (query.MinPrice.HasValue)
+        filter &= filterBuilder.Gte(p => p.Price, query.MinPrice.Value);
+    if (query.MaxPrice.HasValue)
+        filter &= filterBuilder.Lte(p => p.Price, query.MaxPrice.Value);
+
+    // 🧾 Sorting
+    var sortBuilder = Builders<Product>.Sort;
+    var sortField = query.SortBy?.ToLowerInvariant() ?? "createdat";
+    var sort = query.SortOrder?.ToLowerInvariant() == "asc"
+        ? sortBuilder.Ascending(sortField)
+        : sortBuilder.Descending(sortField);
+
+    // 📄 Paging
+    var skip = (query.Page - 1) * query.PageSize;
+
+    var total = await db.Products.CountDocumentsAsync(filter);
+    var items = await db.Products
+        .Find(filter)
+        .Sort(sort)
+        .Skip(skip)
+        .Limit(query.PageSize)
+        .ToListAsync();
+
+    var result = new
+    {
+        query.Page,
+        query.PageSize,
+        Total = total,
+        TotalPages = (int)Math.Ceiling(total / (double)query.PageSize),
+        Items = items
+    };
+
+    return Results.Ok(result);
 });
 
 app.MapGet("/api/products/{id}", async (MongoContext db, string id) =>
