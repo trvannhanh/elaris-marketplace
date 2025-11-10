@@ -42,6 +42,7 @@ builder.Services.AddIdentityServer(options =>
 })
 .AddAspNetIdentity<AppUser>()
 .AddInMemoryIdentityResources(IdentityServerConfig.IdentityResources)
+.AddInMemoryApiResources(IdentityServerConfig.ApiResources)
 .AddInMemoryApiScopes(IdentityServerConfig.ApiScopes)
 .AddInMemoryClients(IdentityServerConfig.Clients)
 .AddSigningCredential(RsaKeyProvider.GetSigningCredentials());
@@ -106,6 +107,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 
 });
+
 
 builder.Services.AddAuthorization(options =>
 {

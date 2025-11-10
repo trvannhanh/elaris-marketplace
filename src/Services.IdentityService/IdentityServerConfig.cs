@@ -22,6 +22,16 @@ namespace Services.IdentityService
                 new ApiScope("elaris.api", "Elaris API") // scope cho toàn bộ backend
             };
 
+        public static IEnumerable<ApiResource> ApiResources =>
+            new ApiResource[]
+            {
+                new ApiResource("elaris.api", "Elaris API")
+                {
+                    Scopes = { "elaris.api" },
+                    UserClaims = { "role", "name", "email" }
+                }
+            };
+
         public static IEnumerable<Client> Clients =>
             new Client[]
             {
