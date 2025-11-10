@@ -1,12 +1,12 @@
 ﻿using ApiGateway.Middlewares;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
-using System.Text;
 
-// ====== SERILOG CONFIGURATION ======
+
+// SERILOG CONFIGURATION 
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithEnvironmentName()
@@ -17,30 +17,48 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+//Serilog
 builder.Host.UseSerilog();
 
+
+// IdentityServer authority-based validation, BFF
+//tự động fetch public key từ IdentityServer qua endpoint /.well-known/openid-configuration/jwks
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = "Cookies";         // BFF: Cookie lưu session người dùng
+    options.DefaultChallengeScheme = "oidc";   // Khi cần login → dùng OpenID Connect
+})
+.AddCookie("Cookies")
+.AddOpenIdConnect("oidc", options =>
+{
+    options.Authority = "http://localhost:5001";  // IdentityService (Duende)
+    options.ClientId = "elaris_bff";
+    options.ResponseType = "code";
+    options.SaveTokens = true;
+    options.RequireHttpsMetadata = false;
+    options.Scope.Add("openid");
+    options.Scope.Add("profile");
+    options.Scope.Add("email");
+    options.Scope.Add("elaris.api");
+    options.Scope.Add("offline_access");
+})
+.AddJwtBearer("JwtBearer", options =>
+{
+    options.Authority = "http://identityservice:8080"; // dùng cho internal API call
+    options.Audience = "elaris.api";
+    options.RequireHttpsMetadata = false;
+});
+
+// Reverse Proxy 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-// JWT Auth
-builder.Services.AddAuthentication("JwtBearer")
-    .AddJwtBearer("JwtBearer", options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "elaris.identity",
-            ValidAudience = "elaris.clients",
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("supersecretkey_please_change_this_in_prod"))
-        };
-    });
 
+// Authorization
 builder.Services.AddAuthorization();
 
+//Cors
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", b =>
@@ -49,7 +67,7 @@ builder.Services.AddCors(options =>
          .AllowAnyHeader());
 });
 
-// ====== OpenTelemetry Setup ======
+// OpenTelemetry Setup 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Elaris.ApiGateway"))
     .WithTracing(t => t
@@ -79,27 +97,60 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// === Pipeline ===
+// Health Check
 app.MapHealthChecks("/health");
 
+// Cors
 app.UseCors("AllowAll");
+
+// Logging
 app.UseMiddleware<LoggingMiddleware>();
+
+//Endpoint / connect/token là public (người dùng cần đăng nhập), nên nếu bạn bật UseAuthentication() toàn cục, cần thêm rule bypass.
+app.Use(async (context, next) =>
+{
+    // Bỏ qua xác thực cho đường dẫn login của IdentityServer
+    if (context.Request.Path.StartsWithSegments("/identity/connect/token"))
+    {
+        await next();
+        return;
+    }
+
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Swagger
 app.UseMiddleware<SwaggerAggregatorMiddleware>();
-
 app.UseSwagger();
-
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Elaris Unified API");
-    c.DocumentTitle = "Elaris API Gateway - Unified Docs";
-    c.RoutePrefix = "swagger"; // truy cập tại /swagger
+
+    // Thêm tab cho từng service
+    c.SwaggerEndpoint("/swagger/identity/swagger.json", "Identity Service");
+    c.SwaggerEndpoint("/swagger/catalog/swagger.json", "Catalog Service");
+    c.SwaggerEndpoint("/swagger/order/swagger.json", "Order Service");
+    c.SwaggerEndpoint("/swagger/basket/swagger.json", "Basket Service");
+    c.SwaggerEndpoint("/swagger/inventory/swagger.json", "Inventory Service");
+    c.SwaggerEndpoint("/swagger/payment/swagger.json", "Payment Service");
+
+    c.RoutePrefix = "swagger";
+    c.DocumentTitle = "Elaris Marketplace - All APIs";
+
 });
 
+app.MapGet("/login", async context =>
+{
+    await context.ChallengeAsync("oidc", new AuthenticationProperties
+    {
+        RedirectUri = "/"
+    });
+});
 
-
+// Reverse Proxy
 app.MapReverseProxy();
 
 app.Run();

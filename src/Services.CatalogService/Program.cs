@@ -18,28 +18,45 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<MongoContext>();
 
-// JWT Auth
+// Duende IdentityServer Authorize
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var auth = builder.Configuration.GetSection("Authentication");
+        options.Authority = auth["Authority"];
+        options.Audience = auth["Audience"];
+        options.RequireHttpsMetadata = bool.Parse(auth["RequireHttpsMetadata"] ?? "false");
+
+        // Đảm bảo role claim mapping chính xác
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "elaris.identity",
-            ValidAudience = "elaris.clients",
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("supersecretkey_please_change_this_in_prod")),
+            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role", //claim của duende identityserver nó như dậy thiệt ớ
+            NameClaimType = "name"
+        };
 
-            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        // Log chi tiết token validation (debug)
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
+            {
+                Console.WriteLine($"❌ JWT Auth failed: {ctx.Exception.Message}");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = ctx =>
+            {
+                Console.WriteLine("✅ Token validated!");
+                foreach (var c in ctx.Principal!.Claims)
+                    Console.WriteLine($"CLAIM: {c.Type} = {c.Value}");
+                return Task.CompletedTask;
+            }
         };
     });
 
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 
+
+// Swagger
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Catalog API", Version = "v1" });
@@ -76,9 +93,11 @@ builder.Services.AddSwaggerGen(c =>
 
 });
 
+//Custom Role
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+    options.AddPolicy("AdminOnly", policy =>
+       policy.RequireRole("admin"));
 });
 
 // Resource: Metadata cho service (hiển thị trong Jaeger/Tempo)
@@ -106,6 +125,7 @@ builder.Services.AddOpenTelemetry()
         }));
 
 
+//MassTransit
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumers(typeof(Program).Assembly); // Nếu sau này có consumer ở Catalog
@@ -122,6 +142,8 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
+
+// Serilog
 builder.Host.UseSerilog((ctx, lc) =>
 {
     lc.ReadFrom.Configuration(ctx.Configuration)

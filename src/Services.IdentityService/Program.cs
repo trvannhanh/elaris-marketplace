@@ -2,59 +2,94 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Services.IdentityService.Data;
-using Microsoft.IdentityModel.Tokens;
-using Services.IdentityService.Utils;
-using System.Text;
 using Microsoft.OpenApi.Models;
-using System.Reflection;
 using OpenTelemetry.Trace;
+using Services.IdentityService.Security;
+using Services.IdentityService;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseSerilog();
+
+builder.Host.UseSerilog((ctx, cfg) =>
+{
+    cfg.ReadFrom.Configuration(ctx.Configuration)
+       .Enrich.FromLogContext()
+       .WriteTo.Console()
+       .WriteTo.File("Logs/identity-.log", rollingInterval: RollingInterval.Day);
+});
+
+
 
 // config db
 var conn = builder.Configuration.GetConnectionString("DefaultConnection")
            ?? Environment.GetEnvironmentVariable("DEFAULT_CONNECTION");
 
 
-// Add DbContext + Identity
+// DbContext
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(conn, npgsql => npgsql.EnableRetryOnFailure()));
 
+// Identity
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 {
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
-    // tinh chỉnh theo nhu cầu
 })
 .AddEntityFrameworkStores<AppDbContext>()
+.AddPasswordValidator<PasswordValidator<AppUser>>() 
 .AddDefaultTokenProviders();
 
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
+// Override password hasher bằng Argon2
+builder.Services.AddScoped<IPasswordHasher<AppUser>, Argon2PasswordHasher<AppUser>>();
 
+// Add Duende IdentityServer
+builder.Services.AddIdentityServer(options =>
+{
+    options.EmitStaticAudienceClaim = true;
+})
+.AddAspNetIdentity<AppUser>()
+.AddInMemoryIdentityResources(IdentityServerConfig.IdentityResources)
+.AddInMemoryApiResources(IdentityServerConfig.ApiResources)
+.AddInMemoryApiScopes(IdentityServerConfig.ApiScopes)
+.AddInMemoryClients(IdentityServerConfig.Clients)
+.AddSigningCredential(RsaKeyProvider.GetSigningCredentials());
+
+
+// BFF
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = "JwtBearer";
-    options.DefaultChallengeScheme = "JwtBearer";
+    options.DefaultScheme = "Cookies";
+    options.DefaultChallengeScheme = "oidc";
 })
-.AddJwtBearer("JwtBearer", options =>
+.AddCookie("Cookies", opts =>
 {
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(key)
-    };
+    opts.Cookie.Name = "elaris.bff";
+    opts.Cookie.SameSite = SameSiteMode.Strict;
+    opts.LoginPath = "/account/login";
+    opts.LogoutPath = "/account/logout";
+})
+.AddOpenIdConnect("oidc", opts =>
+{
+    opts.Authority = "http://localhost:5001"; // chính IdentityServer (self)
+    opts.ClientId = "elaris_bff";
+    opts.ClientSecret = "secret";
+    opts.ResponseType = "code";
+    opts.UsePkce = true;
+    opts.RequireHttpsMetadata = false;
+
+    opts.Scope.Add("openid");
+    opts.Scope.Add("profile");
+    opts.Scope.Add("email");
+    opts.Scope.Add("elaris.api");
+    opts.Scope.Add("offline_access");
+
+    opts.SaveTokens = true;
+    opts.GetClaimsFromUserInfoEndpoint = true;
+
+    opts.TokenValidationParameters.NameClaimType = "name";
+    opts.TokenValidationParameters.RoleClaimType = "role";
 });
 
-builder.Services.AddScoped<JwtTokenGenerator>();
-
-
+// Swagger
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Identity API", Version = "v1" });
@@ -91,18 +126,25 @@ builder.Services.AddSwaggerGen(c =>
 
 });
 
+
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("admin");
+        policy.RequireClaim("scope", "elaris.api");
+    });
+
+    options.AddPolicy("UserOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("user");
+        policy.RequireClaim("scope", "elaris.api");
+    });
 });
 
-// Cấu hình Serilog
-builder.Host.UseSerilog((ctx, lc) =>
-    lc.ReadFrom.Configuration(ctx.Configuration)
-      .Enrich.FromLogContext()
-      .WriteTo.Console());
-
-// Bật OpenTelemetry (trace/log)
+// OpenTelemetry (trace/log)
 builder.Services.AddOpenTelemetry()
     .WithTracing(b =>
     {
@@ -111,27 +153,37 @@ builder.Services.AddOpenTelemetry()
          .AddConsoleExporter();
     });
 
-
+builder.Services.AddCors(opt =>
+{
+    opt.AddPolicy("AllowAll", b =>
+        b.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+});
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
-
+app.UseCors("AllowAll");
 app.UseSerilogRequestLogging();
-if (app.Environment.IsDevelopment())
+
+app.UseDeveloperExceptionPage();
+
+app.UseRouting();
+
+
+app.UseSwagger();
+
+app.UseSwaggerUI(c =>
 {
-    app.UseDeveloperExceptionPage();
-    app.UseSwagger();
+    // URL Swagger JSON thông qua gateway (qua /identity)
+    c.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity API V1");
+    c.RoutePrefix = "swagger";
 
-    app.UseSwaggerUI(c =>
-    {
-        // URL Swagger JSON thông qua gateway (qua /identity)
-        c.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity API V1");
-        c.RoutePrefix = "swagger";
-    });
-}
+});
 
+// Migrate + Seed Data
 using (var scope = app.Services.CreateScope())
 {
    
@@ -142,8 +194,12 @@ using (var scope = app.Services.CreateScope())
 
 
 
-app.UseAuthentication();
-app.UseAuthorization();
+
+app.UseAuthentication();    // 1. Đọc cookie
+app.UseIdentityServer();    // 2. IdentityServer
+app.UseAuthorization();     // 3. Phân quyền
 
 app.MapControllers();
+app.MapGet("/", () => Results.Redirect("/.well-known/openid-configuration"));
+app.MapHealthChecks("/health");
 app.Run();
