@@ -4,14 +4,18 @@ using Services.BasketService.Application.Interfaces;
 using Services.BasketService.Application.Models;
 using Services.BasketService.Infrastructure.Services;
 using MassTransit;
+using FluentValidation;
 using BuildingBlocks.Contracts.Events;
 using Services.BasketService.API.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using Services.BasketService.Application.Validators;
+using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
 
 // Redis
 builder.Services.AddSingleton<IConnectionMultiplexer>(
@@ -20,28 +24,28 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(
 builder.Services.AddScoped<IBasketRepository, BasketRepository>();
 
 
-// JWT Auth
+// Duende IdentityServer Authorize
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var auth = builder.Configuration.GetSection("Authentication");
+        options.Authority = auth["Authority"];
+        options.Audience = auth["Audience"];
+        options.RequireHttpsMetadata = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "elaris.identity",
-            ValidAudience = "elaris.clients",
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("supersecretkey_please_change_this_in_prod")),
-
-            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-
+            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+            NameClaimType = "name"
         };
     });
 builder.Services.AddAuthorization();
 
-// ✅ Catalog Service HTTP Client
+
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddFluentValidationClientsideAdapters();
+builder.Services.AddValidatorsFromAssemblyContaining<BasketItemValidator>();
+
+// Catalog Service HTTP Client
 builder.Services.AddHttpClient<ICatalogServiceClient, CatalogServiceClient>(client =>
 {
     client.BaseAddress = new Uri("http://catalogservice:8080");
@@ -124,7 +128,11 @@ app.MapGet("/api/basket", async (
         UserId = userId,
         Items = items?.ToList() ?? new()
     });
-}).RequireAuthorization();
+})
+.RequireAuthorization()
+.WithSummary("Get items in basket")
+.WithTags("Basket");
+
 
 
 app.MapPost("/api/basket", async (
@@ -132,20 +140,32 @@ app.MapPost("/api/basket", async (
     BasketItem item,
     IBasketRepository repo,
     ICatalogServiceClient catalog,
+    IValidator<BasketItem> validator,
     CancellationToken ct) =>
 {
+    // ✅ Validate input
+    FluentValidation.Results.ValidationResult result = await validator.ValidateAsync(item, ct);
+    if (!result.IsValid)
+    {
+        return Results.ValidationProblem(result.ToDictionary());
+    }
+
     var userId = ctx.GetUserId();
 
     var product = await catalog.GetProductAsync(item.ProductId, ct);
     if (product == null)
         return Results.BadRequest("Product invalid");
 
+    // override data from Catalog
     item.Name = product.Name;
     item.Price = product.Price;
 
     await repo.AddOrUpdateItemAsync(userId, item, ct);
     return Results.Ok();
-}).RequireAuthorization();
+})
+.RequireAuthorization()
+.WithSummary("Add or update item in basket")
+.WithTags("Basket");
 
 app.MapPost("/api/basket/checkout", async (
     HttpContext ctx,
@@ -193,7 +213,10 @@ app.MapPost("/api/basket/checkout", async (
     logger.LogInformation("Basket cleared for user: {UserId}", userId);
 
     return Results.Accepted();
-}).RequireAuthorization();
+})
+.RequireAuthorization()
+.WithSummary("Checkout items in basket")
+.WithTags("Basket");
 
 app.MapDelete("/api/basket/{productId}", async (
     HttpContext ctx,
@@ -205,6 +228,9 @@ app.MapDelete("/api/basket/{productId}", async (
     var success = await repo.RemoveItemAsync(userId, productId, ct);
 
     return success ? Results.NoContent() : Results.NotFound();
-}).RequireAuthorization();
+})
+.RequireAuthorization()
+.WithSummary("Delete item in basket")
+.WithTags("Basket");
 
 app.Run();
