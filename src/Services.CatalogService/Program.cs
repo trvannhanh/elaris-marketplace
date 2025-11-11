@@ -107,16 +107,21 @@ var app = builder.Build();
 // Tạo MongoDB indexes lúc startup
 using (var scope = app.Services.CreateScope())
 {
+    
     var ctx = scope.ServiceProvider.GetRequiredService<MongoContext>();
     var indexKeys = Builders<Product>.IndexKeys
         .Text(p => p.Name)
         .Text(p => p.Description);
-    await ctx.Products.Indexes.CreateOneAsync(new CreateIndexModel<Product>(indexKeys));
+    await ctx.Products.Raw.Indexes.CreateOneAsync(new CreateIndexModel<Product>(indexKeys));
 
     var compoundKeys = Builders<Product>.IndexKeys
         .Ascending(p => p.Price)
         .Descending(p => p.CreatedAt);
-    await ctx.Products.Indexes.CreateOneAsync(new CreateIndexModel<Product>(compoundKeys));
+    await ctx.Products.Raw.Indexes.CreateOneAsync(new CreateIndexModel<Product>(compoundKeys));
+
+    var isDeletedIndex = Builders<Product>.IndexKeys.Ascending(p => p.IsDeleted);
+    await ctx.Products.Raw.Indexes.CreateOneAsync(new CreateIndexModel<Product>(isDeletedIndex));
+
 }
 
 // Middleware

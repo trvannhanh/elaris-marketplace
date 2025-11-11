@@ -12,7 +12,7 @@ namespace Services.CatalogService.Features.Products.UpdatePrice
         {
             app.MapPatch("/api/products/{id}/price", async (string id, decimal newPrice, MongoContext db, IPublishEndpoint publisher) =>
             {
-                var product = await db.Products.Find(p => p.Id == id && !p.IsDeleted).FirstOrDefaultAsync();
+                var product = await db.Products.FindOneAsync(p => p.Id == id);
                 if (product == null) return Results.NotFound();
 
                 var old = product.Price;

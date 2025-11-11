@@ -13,5 +13,9 @@ public class MongoContext
         _db = client.GetDatabase(config["Mongo:Database"]);
     }
 
-    public IMongoCollection<Product> Products => _db.GetCollection<Product>("Products");
+    //public IMongoCollection<Product> Products => _db.GetCollection<Product>("Products");
+
+    // Thay vì trả về IMongoCollection<Product>, trả về SoftDeleteCollection<Product> để áp dụng Softdelete Middleware/Filter:
+    public SoftDeleteCollection<Product> Products
+            => new SoftDeleteCollection<Product>(_db.GetCollection<Product>("Products"));
 }

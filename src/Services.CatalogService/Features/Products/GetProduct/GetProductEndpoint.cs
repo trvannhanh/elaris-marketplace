@@ -9,9 +9,7 @@ namespace Services.CatalogService.Features.Products.GetProduct
         {
             app.MapGet("/api/products/{id}", async (MongoContext db, string id) =>
             {
-                var product = await db.Products
-                    .Find(x => x.Id == id && !x.IsDeleted)
-                    .FirstOrDefaultAsync();
+                var product = await db.Products.FindOneAsync(x => x.Id == id);
 
                 return product is not null
                     ? Results.Ok(product)
