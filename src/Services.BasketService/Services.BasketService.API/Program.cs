@@ -13,6 +13,8 @@ using System.Text;
 using Microsoft.OpenApi.Models;
 using Services.BasketService.Application.Validators;
 using FluentValidation.AspNetCore;
+using Polly.Extensions.Http;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,20 +42,66 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-
+//Fluent Validation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 builder.Services.AddValidatorsFromAssemblyContaining<BasketItemValidator>();
 
-// Catalog Service HTTP Client
+// Catalog Service HTTP Client + Polly (dùng ILogger)
 builder.Services.AddHttpClient<ICatalogServiceClient, CatalogServiceClient>(client =>
 {
     client.BaseAddress = new Uri("http://catalogservice:8080");
-    // tránh bị time-out
-    client.Timeout = TimeSpan.FromSeconds(3);
+    client.Timeout = TimeSpan.FromSeconds(5);
+})
+// Policy 1: Retry với backoff tăng dần
+.AddPolicyHandler((services, request) =>
+{
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        .WaitAndRetryAsync(
+            retryCount: 3,
+            sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+            onRetry: (outcome, timespan, retryAttempt, context) =>
+            {
+                var error = outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString();
+                logger.LogWarning(
+                    "[Polly] Retry {RetryAttempt}/{TotalRetries} for {Method} {Url} after {Delay}s | Reason: {Error}",
+                    retryAttempt, 3, request.Method, request.RequestUri, timespan.TotalSeconds, error);
+            });
+})
+// Policy 2: Circuit Breaker
+.AddPolicyHandler((services, request) =>
+{
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .CircuitBreakerAsync(
+            handledEventsAllowedBeforeBreaking: 3,
+            durationOfBreak: TimeSpan.FromSeconds(30),
+            onBreak: (outcome, breakDuration) =>
+            {
+                var error = outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString();
+                logger.LogError(
+                    "[Polly] Circuit BREAKER OPENED for {Duration}s | Last error: {Error} | URL: {Url}",
+                    breakDuration.TotalSeconds, error, request.RequestUri);
+            },
+            onReset: () =>
+            {
+                logger.LogInformation("[Polly] Circuit BREAKER CLOSED — CatalogService is healthy again");
+            },
+            onHalfOpen: () =>
+            {
+                logger.LogWarning("[Polly] Circuit HALF-OPEN — testing CatalogService connection...");
+            });
 });
 
 builder.Services.AddEndpointsApiExplorer();
+
+//Swagger
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Basket API", Version = "v1" });
@@ -90,6 +138,7 @@ builder.Services.AddSwaggerGen(c =>
 
 });
 
+// MassTransit
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumers(typeof(Program).Assembly); 
