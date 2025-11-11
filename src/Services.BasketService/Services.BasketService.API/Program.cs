@@ -15,6 +15,7 @@ using Services.BasketService.Application.Validators;
 using FluentValidation.AspNetCore;
 using Polly.Extensions.Http;
 using Polly;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -162,6 +163,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Prometheus endpoint
+app.UseHttpMetrics(); // Middleware để ghi lại request-level metrics
+app.MapMetrics();     // Endpoint /metrics cho Prometheus scrape
 
 // API
 app.MapGet("/api/basket", async (

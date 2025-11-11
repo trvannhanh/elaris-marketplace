@@ -1,5 +1,6 @@
 ﻿using Services.BasketService.Application.Interfaces;
 using Services.BasketService.Application.Models;
+using Services.BasketService.Infrastructure.Monitoring;
 using StackExchange.Redis;
 using System.Text.Json;
 
@@ -23,12 +24,17 @@ namespace Services.BasketService.Infrastructure.Repositories
             var entries = await _db.HashGetAllAsync(hashKey);
 
             if (entries.Length == 0)
+            {
+                RedisMetrics.RedisMissCounter.Inc();
                 return new List<BasketItem>();
+            }
+
+            RedisMetrics.RedisHitCounter.Inc();
 
             var items = entries.Select(e =>
                 JsonSerializer.Deserialize<BasketItem>(e.Value!)!).ToList();
 
-            // Optional: refresh TTL on read
+            // refresh TTL on read
             await _db.KeyExpireAsync(hashKey, BasketTTL);
 
             return items;
