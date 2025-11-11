@@ -29,7 +29,11 @@ namespace Services.BasketService.Infrastructure.Repositories
                 return new List<BasketItem>();
             }
 
+
             RedisMetrics.RedisHitCounter.Inc();
+
+            //Refresh TTL khi user truy cập giỏ hàng
+            await _db.KeyExpireAsync(hashKey, BasketTTL);
 
             var items = entries.Select(e =>
                 JsonSerializer.Deserialize<BasketItem>(e.Value!)!).ToList();
@@ -49,7 +53,7 @@ namespace Services.BasketService.Infrastructure.Repositories
                 item.ProductId,
                 JsonSerializer.Serialize(item));
 
-            // Reset TTL every update
+            // Refresh TTL khi user thêm/cập nhật item
             await _db.KeyExpireAsync(hashKey, BasketTTL);
         }
 
