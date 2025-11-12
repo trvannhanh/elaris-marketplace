@@ -11,18 +11,38 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
     {
         private readonly IOrderRepository _orderRepository;
         private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IInventoryGrpcClient _inventoryClient;
         private readonly ILogger<CreateOrderCommandHandler> _logger;
 
 
-        public CreateOrderCommandHandler(IOrderRepository orderRepository, IPublishEndpoint publishEndpoint, ILogger<CreateOrderCommandHandler> logger)
+        public CreateOrderCommandHandler(IOrderRepository orderRepository, IPublishEndpoint publishEndpoint, IInventoryGrpcClient inventoryClient, ILogger<CreateOrderCommandHandler> logger)
         {
             _orderRepository = orderRepository;
             _publishEndpoint = publishEndpoint;
+            _inventoryClient = inventoryClient;
             _logger = logger;
         }
 
         public async Task<Order> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
         {
+
+            //0.5 Kiểm tra tồn kho qua gRPC
+            foreach (var item in request.Items)
+            {
+                var result = _inventoryClient.CheckStock(item.ProductId, item.Quantity);
+
+                if (!result.InStock)
+                {
+                    _logger.LogWarning("❌ Out of stock: {ProductId}, only {Stock} left",
+                        item.ProductId, result.AvailableStock);
+
+                    throw new InvalidOperationException(
+                        $"Sản phẩm {item.ProductId} chỉ còn {result.AvailableStock} trong kho");
+                }
+
+                _logger.LogInformation("✅ Stock OK for {ProductId}: {Available}", item.ProductId, result.AvailableStock);
+            }
+
             var order = new Order
             {
                 Id = Guid.NewGuid(),

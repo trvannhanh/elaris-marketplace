@@ -13,6 +13,9 @@ using Services.OrderService.Application.Common.Mappings;
 using MapsterMapper;
 using Services.OrderService.API.Middleware;
 using MassTransit;
+using Polly;
+using Services.InventoryService;
+using Grpc.Core;
 
 
 
@@ -71,6 +74,29 @@ builder.Services.AddSwaggerGen(c =>
     c.AddServer(new OpenApiServer { Url = "/order" });
 });
 
+//// Thêm Polly policy (tùy chọn)
+//builder.Services.AddPolicyRegistry();
+
+// Đăng ký gRPC client sync
+builder.Services.AddGrpcClient<InventoryService.InventoryServiceClient>(o =>
+{
+    o.Address = new Uri(
+        builder.Configuration["InventoryGrpcUrl"]
+        ?? "http://inventoryservice:8080"
+    );
+})
+.ConfigureChannel(channel =>
+{
+    channel.Credentials = ChannelCredentials.Insecure;
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
+    KeepAlivePingDelay = TimeSpan.FromSeconds(60),
+    KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
+    EnableMultipleHttp2Connections = true
+});
+//.AddPolicyHandler(PolicyBuilder.GetInventoryPolicy()); // retry 3 lần
 
 var app = builder.Build();
 
