@@ -1,0 +1,34 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "Elaris.Grpc.Contracts";
+
+package inventory;
+
+// Service gRPC
+service InventoryService {
+  // Check stock - sync
+  rpc GetStock (GetStockRequest) returns (GetStockResponse);
+  // Reserve stock (nếu cần)
+  rpc ReserveStock (ReserveStockRequest) returns (ReserveStockResponse);
+}
+
+// Request/Response
+message GetStockRequest {
+  string productId = 1;
+}
+
+message GetStockResponse {
+  string productId = 1;
+  int32 availableStock = 2;
+  bool inStock = 3;
+}
+
+message ReserveStockRequest {
+  string productId = 1;
+  int32 quantity = 2;
+}
+
+message ReserveStockResponse {
+  bool success = 1;
+  string message = 2;
+}

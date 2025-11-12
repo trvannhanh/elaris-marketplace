@@ -148,6 +148,7 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=ordersql;Port=5432;Database=elaris_orderdb;Username=elaris;Password=elaris_pwd
       - ConnectionStrings__Mongo=mongodb://mongo:27017
+      - InventoryGrpcUrl=http://inventoryservice:8080
     ports:
       - "5003:8080"
     depends_on:
@@ -187,6 +188,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_Kestrel__EndpointDefaults__Protocols=Http1AndHttp2
       - ConnectionStrings__DefaultConnection=Host=inventorysql;Port=5432;Database=elaris_inventorydb;Username=elaris;Password=elaris_pwd
     ports:
       - "5005:8080"
