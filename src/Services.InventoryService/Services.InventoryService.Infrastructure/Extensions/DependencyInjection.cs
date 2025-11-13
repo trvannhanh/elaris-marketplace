@@ -20,7 +20,7 @@ namespace Services.InventoryService.Infrastructure.Extensions
             services.AddDbContext<InventoryDbContext>(options =>
                 options.UseNpgsql(conn, npgsql => npgsql.EnableRetryOnFailure()));
 
-
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IInventoryRepository, InventoryRepository>();
 
             // Đăng ký Singleton để Consumer có thể inject

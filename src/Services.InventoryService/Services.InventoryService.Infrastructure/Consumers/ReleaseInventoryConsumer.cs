@@ -8,16 +8,16 @@ namespace Services.InventoryService.Infrastructure.Consumers
 {
     public class ReleaseInventoryConsumer : IConsumer<ReleaseInventoryCommand>
     {
-        private readonly IInventoryRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly ReservationTimeoutService _timeoutService;
         private readonly ILogger<ReleaseInventoryConsumer> _logger;
 
         public ReleaseInventoryConsumer(
-            IInventoryRepository repo,
+            IUnitOfWork uow,
             ReservationTimeoutService timeoutService,
             ILogger<ReleaseInventoryConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _timeoutService = timeoutService;
             _logger = logger;
         }
@@ -25,15 +25,18 @@ namespace Services.InventoryService.Infrastructure.Consumers
         public async Task Consume(ConsumeContext<ReleaseInventoryCommand> context)
         {
             var cmd = context.Message;
+            var ct = context.CancellationToken;
 
             // XÓA KHỎI QUEUE ĐỂ TRÁNH TỰ ĐỘNG HẾT HẠN
             _timeoutService.RemoveReservationsByOrder(cmd.OrderId);
 
             foreach (var item in cmd.Items)
             {
-                await _repo.ReleaseReservationAsync(item.ProductId, item.Quantity, context.CancellationToken);
+                await _uow.Inventory.ReleaseReservationAsync(item.ProductId, item.Quantity, ct);
                 _logger.LogInformation("Released: {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
             }
+
+            await _uow.SaveChangesAsync(ct);
         }
     }
 }

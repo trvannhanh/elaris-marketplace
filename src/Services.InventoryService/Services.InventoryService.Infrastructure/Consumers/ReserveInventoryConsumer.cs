@@ -9,14 +9,14 @@ namespace Services.InventoryService.Infrastructure.Consumers
 {
     public class ReserveInventoryConsumer : IConsumer<ReserveInventoryCommand>
     {
-        private readonly IInventoryRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publisher;
         private readonly ReservationTimeoutService _timeoutService;
         private readonly ILogger<ReserveInventoryConsumer> _logger;
 
-        public ReserveInventoryConsumer(IInventoryRepository repo, IPublishEndpoint publisher, ReservationTimeoutService timeoutService, ILogger<ReserveInventoryConsumer> logger)
+        public ReserveInventoryConsumer(IUnitOfWork uow, IPublishEndpoint publisher, ReservationTimeoutService timeoutService, ILogger<ReserveInventoryConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _publisher = publisher;
             _timeoutService = timeoutService;
             _logger = logger;
@@ -25,17 +25,18 @@ namespace Services.InventoryService.Infrastructure.Consumers
         public async Task Consume(ConsumeContext<ReserveInventoryCommand> context)
         {
             var cmd = context.Message;
+            var ct = context.CancellationToken;
             var reservedItems = new List<OrderItemEntry>();
 
             foreach (var item in cmd.Items)
             {
-                var inStock = await _repo.TryReserveStockAsync(item.ProductId, item.Quantity, context.CancellationToken);
-                if (!inStock)
+                var success = await _uow.Inventory.TryReserveStockAsync(item.ProductId, item.Quantity, ct);
+                if (!success)
                 {
                     await context.Publish(new OrderStockRejectedEvent(
                         cmd.OrderId,
                         $"Out of stock: {item.ProductId}",
-                        DateTime.UtcNow), context.CancellationToken);
+                        DateTime.UtcNow), ct);
 
                     _logger.LogWarning("Stock rejected for Order {OrderId}: {ProductId}", cmd.OrderId, item.ProductId);
                     return;
@@ -46,6 +47,8 @@ namespace Services.InventoryService.Infrastructure.Consumers
 
                 reservedItems.Add(new OrderItemEntry(item.ProductId, item.Quantity));
             }
+
+            await _uow.SaveChangesAsync(ct);
 
             await context.Publish(new OrderItemsReservedEvent(
                 cmd.OrderId, reservedItems, DateTime.UtcNow), context.CancellationToken);

@@ -6,16 +6,16 @@ namespace Services.InventoryService.Application.Inventory.Commands.CreateOrUpdat
 {
     public class CreateOrUpdateInventoryItemCommandHandler : IRequestHandler<CreateOrUpdateInventoryItemCommand>
     {
-        private readonly IInventoryRepository _repo;
+        private readonly IUnitOfWork _uow;
 
-        public CreateOrUpdateInventoryItemCommandHandler(IInventoryRepository repo)
+        public CreateOrUpdateInventoryItemCommandHandler(IUnitOfWork uow)
         {
-            _repo = repo;
+            _uow = uow;
         }
 
         public async Task Handle(CreateOrUpdateInventoryItemCommand request, CancellationToken ct)
         {
-            var existing = await _repo.GetByProductIdAsync(request.ProductId, ct);
+            var existing = await _uow.Inventory.GetByProductIdAsync(request.ProductId, ct);
             if (existing != null)
             {
                 existing.AvailableStock = request.Stock;
@@ -23,7 +23,7 @@ namespace Services.InventoryService.Application.Inventory.Commands.CreateOrUpdat
             }
             else
             {
-                await _repo.AddAsync(new InventoryItem
+                await _uow.Inventory.AddAsync(new InventoryItem
                 {
                     ProductId = request.ProductId,
                     AvailableStock = request.Stock,
@@ -31,7 +31,7 @@ namespace Services.InventoryService.Application.Inventory.Commands.CreateOrUpdat
                 }, ct);
             }
 
-            await _repo.SaveChangesAsync(ct);
+            await _uow.SaveChangesAsync(ct);
         }
     }
 }

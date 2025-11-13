@@ -8,19 +8,19 @@ namespace Services.InventoryService.Infrastructure.Consumers
 {
     public class ProductCreatedConsumer : IConsumer<ProductCreatedEvent>
     {
-        private readonly IInventoryRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly ILogger<ProductCreatedConsumer> _logger;
 
-        public ProductCreatedConsumer(IInventoryRepository repo, ILogger<ProductCreatedConsumer> logger)
+        public ProductCreatedConsumer(IUnitOfWork uow, ILogger<ProductCreatedConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _logger = logger;
         }
 
         public async Task Consume(ConsumeContext<ProductCreatedEvent> context)
         {
             var message = context.Message;
-            var cancellationToken = context.CancellationToken; // lấy token ở đây
+            var ct = context.CancellationToken;
 
             _logger.LogInformation("📦 Received ProductCreatedEvent for ProductId={Id}", message.ProductId);
 
@@ -31,8 +31,8 @@ namespace Services.InventoryService.Infrastructure.Consumers
                 LastUpdated = DateTime.UtcNow
             };
 
-            await _repo.AddAsync(inventory, cancellationToken);
-            await _repo.SaveChangesAsync(cancellationToken);
+            await _uow.Inventory.AddAsync(inventory, ct);
+            await _uow.SaveChangesAsync(ct);
 
             _logger.LogInformation("✅ Inventory created for ProductId={Id}", message.ProductId);
         }
