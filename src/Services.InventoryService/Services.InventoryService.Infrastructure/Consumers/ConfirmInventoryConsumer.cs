@@ -30,8 +30,8 @@ namespace Services.InventoryService.Infrastructure.Consumers
             {
                 foreach (var item in cmd.Items)
                 {
-                    await _repo.DecreaseStockAsync(item.ProductId, item.Quantity);
-                    _logger.LogInformation("Decreased stock: {ProductId} x {Quantity}", item.ProductId, item.Quantity);
+                    await _repo.ConfirmReservationAsync(item.ProductId, item.Quantity);
+                    _logger.LogInformation("ConfirmReservation stock: {ProductId} x {Quantity}", item.ProductId, item.Quantity);
                 }
 
                 await context.Publish(new InventoryUpdatedEvent(

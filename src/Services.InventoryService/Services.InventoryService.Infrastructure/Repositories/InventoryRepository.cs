@@ -61,5 +61,35 @@ namespace Services.InventoryService.Infrastructure.Repositories
         {
             await _db.SaveChangesAsync(cancellationToken);
         }
+
+        public async Task<bool> TryReserveStockAsync(string productId, int quantity, CancellationToken ct)
+        {
+            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+            if (item == null || item.EffectiveStock < quantity)
+                return false;
+
+            item.ReservedQuantity += quantity;
+            await _db.SaveChangesAsync(ct);
+            return true;
+        }
+
+        public async Task ReleaseReservationAsync(string productId, int quantity, CancellationToken ct)
+        {
+            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+            if (item == null) return;
+
+            item.ReservedQuantity = Math.Max(0, item.ReservedQuantity - quantity);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        public async Task ConfirmReservationAsync(string productId, int quantity, CancellationToken ct)
+        {
+            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+            if (item == null) return;
+
+            item.ReservedQuantity -= quantity;
+            item.AvailableStock -= quantity;
+            await _db.SaveChangesAsync(ct);
+        }
     }
 }

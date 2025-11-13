@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Services.InventoryService.Application.Interfaces;
+using Services.InventoryService.Infrastructure.BackgroundServices;
 using Services.InventoryService.Infrastructure.Consumers;
 using Services.InventoryService.Infrastructure.Persistence;
 using Services.InventoryService.Infrastructure.Repositories;
@@ -21,6 +22,12 @@ namespace Services.InventoryService.Infrastructure.Extensions
 
 
             services.AddScoped<IInventoryRepository, InventoryRepository>();
+
+            // Đăng ký Singleton để Consumer có thể inject
+            services.AddSingleton<ReservationTimeoutService>();
+
+            // Đồng thời đăng ký nó như HostedService để tự chạy background loop
+            services.AddHostedService(provider => provider.GetRequiredService<ReservationTimeoutService>());
 
             services.AddMassTransit(x =>
             {

@@ -1,29 +1,39 @@
 ﻿using BuildingBlocks.Contracts.Commands;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using Services.InventoryService.Application.Interfaces;
+using Services.InventoryService.Infrastructure.BackgroundServices;
 
 namespace Services.InventoryService.Infrastructure.Consumers
 {
     public class ReleaseInventoryConsumer : IConsumer<ReleaseInventoryCommand>
     {
+        private readonly IInventoryRepository _repo;
+        private readonly ReservationTimeoutService _timeoutService;
         private readonly ILogger<ReleaseInventoryConsumer> _logger;
 
-        public ReleaseInventoryConsumer(ILogger<ReleaseInventoryConsumer> logger)
+        public ReleaseInventoryConsumer(
+            IInventoryRepository repo,
+            ReservationTimeoutService timeoutService,
+            ILogger<ReleaseInventoryConsumer> logger)
         {
+            _repo = repo;
+            _timeoutService = timeoutService;
             _logger = logger;
         }
 
-        public Task Consume(ConsumeContext<ReleaseInventoryCommand> context)
+        public async Task Consume(ConsumeContext<ReleaseInventoryCommand> context)
         {
             var cmd = context.Message;
-            _logger.LogInformation(
-                "Released inventory reservation for Order {OrderId}. Items: {Items}",
-                cmd.OrderId,
-                string.Join(", ", cmd.Items.Select(i => $"{i.ProductId}x{i.Quantity}"))
-            );
 
-            // Không cần làm gì: hàng chưa bị trừ → chỉ log
-            return Task.CompletedTask;
+            // XÓA KHỎI QUEUE ĐỂ TRÁNH TỰ ĐỘNG HẾT HẠN
+            _timeoutService.RemoveReservationsByOrder(cmd.OrderId);
+
+            foreach (var item in cmd.Items)
+            {
+                await _repo.ReleaseReservationAsync(item.ProductId, item.Quantity, context.CancellationToken);
+                _logger.LogInformation("Released: {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
+            }
         }
     }
 }

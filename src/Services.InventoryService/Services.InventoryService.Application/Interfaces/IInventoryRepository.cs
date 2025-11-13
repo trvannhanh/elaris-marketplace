@@ -12,5 +12,8 @@ namespace Services.InventoryService.Application.Interfaces
         Task<InventoryItem?> GetByProductIdAsync(string productId, CancellationToken cancellationToken = default);
         Task AddAsync(InventoryItem inventory, CancellationToken cancellationToken = default);
         Task SaveChangesAsync(CancellationToken cancellationToken = default);
+        Task<bool> TryReserveStockAsync(string productId, int quantity, CancellationToken ct = default);
+        Task ReleaseReservationAsync(string productId, int quantity, CancellationToken ct = default);
+        Task ConfirmReservationAsync(string productId, int quantity, CancellationToken ct = default);
     }
 }

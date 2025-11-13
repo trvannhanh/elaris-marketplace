@@ -16,7 +16,7 @@ namespace Services.InventoryService.Application.Inventory.Queries.CheckStock
             if (item == null)
                 return new(false, 0, "Product not found");
 
-            var inStock = item.AvailableStock >= request.Quantity;
+            var inStock = item.EffectiveStock >= request.Quantity;
             return new(inStock, item.AvailableStock, inStock ? "OK" : "Not enough stock");
         }
     }
