@@ -11,6 +11,7 @@ using MapsterMapper;
 using Services.InventoryService.Application.Common.Mappings;
 using Services.InventoryService.Application.Interfaces;
 using Services.InventoryService.Infrastructure.Repositories;
+using Services.InventoryService.API.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +76,19 @@ builder.Services.AddOptions<MassTransit.MassTransitHostOptions>()
 
 builder.Services.AddHttpClient<IInventoryRepository, InventoryRepository>();
 
+builder.Services.AddGrpc(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    // gRPC endpoint nội bộ (HTTP/2)
+    options.ListenAnyIP(8081, o => o.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2);
+
+    // REST + Swagger endpoint (HTTP/1.1)
+    options.ListenAnyIP(8080, o => o.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1);
+});
 
 var app = builder.Build();
 
@@ -92,6 +106,11 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.MapControllers();
+
+app.MapGrpcService<InventoryGrpcService>();
+
+app.MapGet("/", () => "Inventory gRPC Service is running...");
+
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
 app.Run();

@@ -5,7 +5,7 @@ using MediatR;
 using Services.InventoryService.Application.DTOs;
 using Services.InventoryService.Application.Interfaces;
 
-namespace Services.InventoryService.Application.Inventory.Queries
+namespace Services.InventoryService.Application.Inventory.Queries.GetInventoryByProductId
 {
     public class GetInventoryByProductIdQueryHandler
         : IRequestHandler<GetInventoryByProductIdQuery, InventoryResponse?>

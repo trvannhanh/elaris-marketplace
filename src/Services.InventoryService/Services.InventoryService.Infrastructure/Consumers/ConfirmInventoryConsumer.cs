@@ -8,16 +8,16 @@ namespace Services.InventoryService.Infrastructure.Consumers
 {
     public class ConfirmInventoryConsumer : IConsumer<ConfirmInventoryReservationCommand>
     {
-        private readonly IInventoryRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publisher;
         private readonly ILogger<ConfirmInventoryConsumer> _logger;
 
         public ConfirmInventoryConsumer(
-            IInventoryRepository repo,
+            IUnitOfWork uow,
             IPublishEndpoint publisher,
             ILogger<ConfirmInventoryConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _publisher = publisher;
             _logger = logger;
         }
@@ -30,9 +30,11 @@ namespace Services.InventoryService.Infrastructure.Consumers
             {
                 foreach (var item in cmd.Items)
                 {
-                    await _repo.DecreaseStockAsync(item.ProductId, item.Quantity);
-                    _logger.LogInformation("Decreased stock: {ProductId} x {Quantity}", item.ProductId, item.Quantity);
+                    await _uow.Inventory.ConfirmReservationAsync(item.ProductId, item.Quantity, context.CancellationToken);
+                    _logger.LogInformation("ConfirmReservation stock: {ProductId} x {Quantity}", item.ProductId, item.Quantity);
                 }
+
+                await _uow.SaveChangesAsync(context.CancellationToken);
 
                 await context.Publish(new InventoryUpdatedEvent(
                     cmd.OrderId,
@@ -51,6 +53,8 @@ namespace Services.InventoryService.Infrastructure.Consumers
                     ex.Message,
                     DateTime.UtcNow
                 ));
+
+                throw;
             }
         }
     }

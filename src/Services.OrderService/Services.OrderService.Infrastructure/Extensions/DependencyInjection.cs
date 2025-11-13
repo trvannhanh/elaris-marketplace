@@ -8,6 +8,7 @@ using Services.OrderService.Infrastructure.Persistence;
 using Services.OrderService.Infrastructure.Publishers;
 using Services.OrderService.Infrastructure.Repositories;
 using Services.OrderService.Infrastructure.Saga;
+using Services.OrderService.Infrastructure.Services;
 
 namespace Services.OrderService.Infrastructure.Extensions
 {
@@ -20,6 +21,7 @@ namespace Services.OrderService.Infrastructure.Extensions
 
             services.AddScoped<IOrderRepository, OrderRepository>();
             services.AddScoped<IEventPublisher, EventPublisher>();
+            services.AddScoped<IInventoryGrpcClient, InventoryGrpcClient>();
             services.AddMassTransit(x =>
             {
                 x.SetKebabCaseEndpointNameFormatter();

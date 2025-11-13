@@ -38,6 +38,9 @@ namespace Services.InventoryService.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("ReservedQuantity")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.ToTable("InventoryItems");

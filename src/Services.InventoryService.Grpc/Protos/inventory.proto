@@ -1,0 +1,18 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "Services.InventoryService.Grpc";
+
+service InventoryGrpc {
+  // Kiểm tra sản phẩm còn đủ quantity hay không
+  rpc CheckStock (CheckStockRequest) returns (CheckStockResponse);
+}
+
+message CheckStockRequest {
+  string productId = 1;
+  int32 quantity = 2;
+}
+
+message CheckStockResponse {
+  bool available = 1;
+  int32 remaining = 2;
+}

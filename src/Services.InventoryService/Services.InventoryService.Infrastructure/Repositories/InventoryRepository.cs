@@ -49,7 +49,6 @@ namespace Services.InventoryService.Infrastructure.Repositories
 
             inventory.AvailableStock -= quantity;
             _db.InventoryItems.Update(inventory);
-            await _db.SaveChangesAsync(cancellationToken);
         }
 
         public async Task AddAsync(InventoryItem inventory, CancellationToken cancellationToken = default)
@@ -57,9 +56,34 @@ namespace Services.InventoryService.Infrastructure.Repositories
             await _db.InventoryItems.AddAsync(inventory, cancellationToken);
         }
 
-        public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+        public async Task<bool> TryReserveStockAsync(string productId, int quantity, CancellationToken ct)
         {
-            await _db.SaveChangesAsync(cancellationToken);
+            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+            if (item == null || item.EffectiveStock < quantity)
+                return false;
+
+            item.ReservedQuantity += quantity;
+            _db.InventoryItems.Update(item);
+            return true;
+        }
+
+        public async Task ReleaseReservationAsync(string productId, int quantity, CancellationToken ct)
+        {
+            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+            if (item == null) return;
+
+            item.ReservedQuantity = Math.Max(0, item.ReservedQuantity - quantity);
+            _db.InventoryItems.Update(item);
+        }
+
+        public async Task ConfirmReservationAsync(string productId, int quantity, CancellationToken ct)
+        {
+            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
+            if (item == null) return;
+
+            item.ReservedQuantity -= quantity;
+            item.AvailableStock -= quantity;
+            _db.InventoryItems.Update(item);
         }
     }
 }
