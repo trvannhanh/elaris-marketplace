@@ -23,6 +23,7 @@ namespace Services.PaymentService.Infrastructure.Extensions
             {
                 x.AddConsumer<AuthorizePaymentConsumer>();
                 x.AddConsumer<RefundPaymentConsumer>();
+                x.AddConsumer<CapturePaymentConsumer>();
 
                 x.UsingRabbitMq((context, cfg) =>
                 {

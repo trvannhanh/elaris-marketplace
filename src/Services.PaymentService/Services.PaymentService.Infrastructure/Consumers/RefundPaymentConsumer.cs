@@ -1,4 +1,5 @@
 ﻿using BuildingBlocks.Contracts.Commands;
+using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Services.PaymentService.Application.Interfaces;
@@ -29,9 +30,9 @@ namespace Services.PaymentService.Infrastructure.Consumers
                 return;
             }
 
-            if (payment.Status != PaymentStatus.Success)
+            if (payment.Status != PaymentStatus.Authorized)
             {
-                _logger.LogWarning("Cannot refund non-successful payment: {Status}", payment.Status);
+                _logger.LogWarning("Cannot refund non-authorzied payment: {Status}", payment.Status);
                 return;
             }
 
@@ -53,11 +54,23 @@ namespace Services.PaymentService.Infrastructure.Consumers
                     "Payment refunded for Order {OrderId}. Amount: {Amount}. Reason: {Reason}",
                     cmd.OrderId, payment.Amount, cmd.Reason
                 );
+                await context.Publish(new RefundSucceededEvent(
+                    cmd.OrderId,
+                    payment.Amount,
+                    cmd.Reason,
+                    payment.RefundedAt.Value
+                ));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Refund failed for Order {OrderId}", cmd.OrderId);
-                // Có thể publish RefundFailedEvent nếu cần
+
+                await context.Publish(new RefundFailedEvent(
+                    cmd.OrderId,
+                    payment.Amount,
+                    ex.Message,
+                    DateTime.UtcNow
+                ));
             }
         }
     }

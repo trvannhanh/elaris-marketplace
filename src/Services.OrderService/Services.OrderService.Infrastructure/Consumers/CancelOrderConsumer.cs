@@ -22,7 +22,7 @@ namespace Services.OrderService.Infrastructure.Consumers
             var order = await _repo.GetByIdAsync(context.Message.OrderId, context.CancellationToken);
             if (order == null)
             {
-                _logger.LogWarning("Order {OrderId} not found for cancellation", context.Message.OrderId);
+                _logger.LogWarning("❌ Order {OrderId} not found for cancellation", context.Message.OrderId);
                 return;
             }
 
@@ -31,7 +31,7 @@ namespace Services.OrderService.Infrastructure.Consumers
             order.CancellReason = context.Message.Reason;
             await _repo.SaveChangesAsync(context.CancellationToken);
 
-            _logger.LogInformation("Order {OrderId} canceled: {Reason}", context.Message.OrderId, context.Message.Reason);
+            _logger.LogInformation("✅ Order {OrderId} canceled: {Reason}", context.Message.OrderId, context.Message.Reason);
         }
     }
 }

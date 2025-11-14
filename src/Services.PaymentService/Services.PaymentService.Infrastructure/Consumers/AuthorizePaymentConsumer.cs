@@ -25,14 +25,14 @@ namespace Services.PaymentService.Infrastructure.Consumers
             await _repo.AddAsync(payment, context.CancellationToken);
 
             await Task.Delay(1000);
-            var success = new Random().NextDouble() > 0.2;
+            var authorized = new Random().NextDouble() > 0.2;
 
-            if (success)
+            if (authorized)
             {
-                payment.Status = PaymentStatus.Success;
+                payment.Status = PaymentStatus.Authorized;
                 payment.CompletedAt = DateTime.UtcNow;
                 await _repo.SaveChangesAsync(context.CancellationToken);
-                await context.Publish(new PaymentSucceededEvent(cmd.OrderId, cmd.Amount, new(), payment.CompletedAt.Value));
+                await context.Publish(new PaymentSucceededEvent(cmd.OrderId, cmd.Amount, payment.CompletedAt.Value));
             }
             else
             {

@@ -43,6 +43,8 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 _logger.LogInformation("✅ Stock OK for {ProductId}: {Available}", item.ProductId, result.AvailableStock);
             }
 
+
+
             var order = new Order
             {
                 Id = Guid.NewGuid(),
@@ -82,17 +84,17 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
             try
             {
                 await _publishEndpoint.Publish(eventToPublish, cancellationToken);
-                _logger.LogInformation("OrderCreatedEvent published successfully");
+                _logger.LogInformation("✅ OrderCreatedEvent published successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to publish OrderCreatedEvent ");
+                _logger.LogError(ex, "❌ Failed to publish OrderCreatedEvent ");
             }
 
             // 4. SaveChanges → Lưu cả Order + OutboxMessage trong 1 transaction
             await _orderRepository.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Order {OrderId} created and OrderCreatedEvent published via Outbox", order.Id);
+            _logger.LogInformation("✅ Order {OrderId} created and OrderCreatedEvent published via Outbox", order.Id);
 
             return order;
         }
