@@ -22,6 +22,7 @@ namespace Services.OrderService.Infrastructure.Extensions
             services.AddScoped<IOrderRepository, OrderRepository>();
             services.AddScoped<IEventPublisher, EventPublisher>();
             services.AddScoped<IInventoryGrpcClient, InventoryGrpcClient>();
+            services.AddScoped<IPaymentGrpcClient, PaymentGrpcClient>();
             services.AddMassTransit(x =>
             {
                 x.SetKebabCaseEndpointNameFormatter();

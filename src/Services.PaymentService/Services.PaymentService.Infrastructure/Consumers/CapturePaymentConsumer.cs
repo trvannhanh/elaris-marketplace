@@ -53,7 +53,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
                 payment.Status = PaymentStatus.Captured; // already success, keep or set to Captured if you add new enum
                 await _repo.SaveChangesAsync(context.CancellationToken);
 
-                _logger.LogInformation("Payment captured for Order {OrderId}, Tx={Tx}", cmd.OrderId, transactionId);
+                _logger.LogInformation("✅ Payment captured for Order {OrderId}, Tx={Tx}", cmd.OrderId, transactionId);
                 await context.Publish(new PaymentCapturedEvent(cmd.OrderId, cmd.Amount, transactionId, DateTime.UtcNow));
             }
             catch (Exception ex)

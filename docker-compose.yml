@@ -149,6 +149,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=ordersql;Port=5432;Database=elaris_orderdb;Username=elaris;Password=elaris_pwd
       - ConnectionStrings__Mongo=mongodb://mongo:27017
       - InventoryGrpcUrl=http://inventoryservice:8081
+      - PaymentGrpcUrl=http://paymentservice:8081
     ports:
       - "5003:8080"
     depends_on:

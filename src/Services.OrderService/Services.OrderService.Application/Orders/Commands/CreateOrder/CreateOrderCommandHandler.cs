@@ -12,14 +12,16 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
         private readonly IOrderRepository _orderRepository;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly IInventoryGrpcClient _inventoryClient;
+        private readonly IPaymentGrpcClient _paymentClient;
         private readonly ILogger<CreateOrderCommandHandler> _logger;
 
 
-        public CreateOrderCommandHandler(IOrderRepository orderRepository, IPublishEndpoint publishEndpoint, IInventoryGrpcClient inventoryClient, ILogger<CreateOrderCommandHandler> logger)
+        public CreateOrderCommandHandler(IOrderRepository orderRepository, IPublishEndpoint publishEndpoint, IInventoryGrpcClient inventoryClient, IPaymentGrpcClient paymentClient, ILogger<CreateOrderCommandHandler> logger)
         {
             _orderRepository = orderRepository;
             _publishEndpoint = publishEndpoint;
             _inventoryClient = inventoryClient;
+            _paymentClient = paymentClient;
             _logger = logger;
         }
 
@@ -44,7 +46,6 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
             }
 
 
-
             var order = new Order
             {
                 Id = Guid.NewGuid(),
@@ -63,10 +64,22 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
             };
 
 
+            //var paymentResult = _paymentClient.PreAuthorize(
+            //    order.Id,
+            //    order.TotalPrice,
+            //    request.UserId
+            //);
+
+            //if (!paymentResult.Success)
+            //{
+            //    _logger.LogWarning("Thanh toán tạm giữ thất bại: {Message}", paymentResult.Message);
+            //    throw new InvalidOperationException($"Thanh toán thất bại: {paymentResult.Message}");
+            //}
+
+            //_logger.LogInformation("Thanh toán tạm giữ thành công: {PaymentId}", paymentResult.PaymentId);
 
             // 1. Lưu Order vào DB
             await _orderRepository.AddAsync(order, cancellationToken);
-
 
             _logger.LogInformation("Order . Publishing event...");
 

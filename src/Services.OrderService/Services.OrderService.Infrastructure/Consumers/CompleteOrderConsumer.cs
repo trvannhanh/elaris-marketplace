@@ -22,7 +22,7 @@ namespace Services.OrderService.Infrastructure.Consumers
             var order = await _repo.GetByIdAsync(context.Message.OrderId, context.CancellationToken);
             if (order == null)
             {
-                _logger.LogWarning("Order {OrderId} not found for completion", context.Message.OrderId);
+                _logger.LogWarning("❌ Order {OrderId} not found for completion", context.Message.OrderId);
                 return;
             }
 
@@ -30,7 +30,7 @@ namespace Services.OrderService.Infrastructure.Consumers
             order.CompletedAt = DateTime.UtcNow;
             await _repo.SaveChangesAsync(context.CancellationToken);
 
-            _logger.LogInformation("Order {OrderId} completed successfully", context.Message.OrderId);
+            _logger.LogInformation("✅ Order {OrderId} completed successfully", context.Message.OrderId);
         }
     }
 }

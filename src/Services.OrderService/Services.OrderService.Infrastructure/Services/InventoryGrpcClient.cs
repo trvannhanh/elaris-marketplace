@@ -36,7 +36,7 @@ namespace Services.OrderService.Infrastructure.Services
             }
             catch (RpcException ex)
             {
-                _logger.LogError(ex, "gRPC CheckStock failed for {ProductId}", productId);
+                _logger.LogError(ex, "❌ gRPC CheckStock failed for {ProductId}", productId);
                 throw new InvalidOperationException("Không thể kiểm tra tồn kho", ex);
             }
         }

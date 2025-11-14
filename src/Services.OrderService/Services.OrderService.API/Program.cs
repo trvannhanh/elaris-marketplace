@@ -16,6 +16,7 @@ using MassTransit;
 using Polly;
 using Services.InventoryService;
 using Grpc.Core;
+using Services.PaymentService;
 
 
 
@@ -84,7 +85,17 @@ builder.Services.AddGrpcClient<InventoryService.InventoryServiceClient>(o =>
         builder.Configuration["InventoryGrpcUrl"]
         ?? "http://inventoryservice:8080"
     );
+});
+
+builder.Services.AddGrpcClient<PaymentService.PaymentServiceClient>(o =>
+{
+    o.Address = new Uri(
+        builder.Configuration["PaymentGrpcUrl"]
+        ?? "http://paymentservice:8080"
+    );
 })
+
+
 .ConfigureChannel(channel =>
 {
     channel.Credentials = ChannelCredentials.Insecure;

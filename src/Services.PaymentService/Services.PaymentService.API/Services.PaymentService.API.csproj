@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks.GrpcContracts\BuildingBlocks.GrpcContracts.csproj" />
     <ProjectReference Include="..\Services.PaymentService.Infrastructure\Services.PaymentService.Infrastructure.csproj" />
   </ItemGroup>
 
