@@ -17,6 +17,7 @@ namespace Services.PaymentService.Infrastructure.Extensions
             // DbContext + repo 
             services.AddDbContext<PaymentDbContext>(opt => opt.UseNpgsql(conn));
             services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             // MassTransit + consumer
             services.AddMassTransit(x =>

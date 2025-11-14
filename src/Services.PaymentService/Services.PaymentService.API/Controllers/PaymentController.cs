@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Services.PaymentService.Application.Payments.Commands;
+using Services.PaymentService.Application.Payments.Commands.CreatePayment;
 
 namespace Services.PaymentService.API.Controllers
 {

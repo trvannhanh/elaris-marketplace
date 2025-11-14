@@ -21,7 +21,5 @@ namespace Services.PaymentService.Infrastructure.Repositories
         public Task<Payment?> GetByOrderIdAsync(Guid orderId, CancellationToken ct)
             => _db.Payments.FirstOrDefaultAsync(x => x.OrderId == orderId, ct);
 
-        public Task SaveChangesAsync(CancellationToken ct)
-            => _db.SaveChangesAsync(ct);
     }
 }

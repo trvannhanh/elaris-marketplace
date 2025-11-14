@@ -9,6 +9,5 @@ namespace Services.PaymentService.Application.Interfaces
     {
         Task AddAsync(Payment payment, CancellationToken ct);
         Task<Payment?> GetByOrderIdAsync(Guid orderId, CancellationToken ct);
-        Task SaveChangesAsync(CancellationToken ct);
     }
 }

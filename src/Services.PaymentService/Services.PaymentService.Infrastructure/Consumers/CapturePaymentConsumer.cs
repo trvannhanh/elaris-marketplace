@@ -9,13 +9,13 @@ namespace Services.PaymentService.Infrastructure.Consumers
 {
     public class CapturePaymentConsumer : IConsumer<CapturePaymentCommand>
     {
-        private readonly IPaymentRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publisher;
         private readonly ILogger<CapturePaymentConsumer> _logger;
 
-        public CapturePaymentConsumer(IPaymentRepository repo, IPublishEndpoint publisher, ILogger<CapturePaymentConsumer> logger)
+        public CapturePaymentConsumer(IUnitOfWork uow, IPublishEndpoint publisher, ILogger<CapturePaymentConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _publisher = publisher;
             _logger = logger;   
         }
@@ -24,7 +24,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
         {
             var cmd = context.Message;
             // Tìm payment đã được pre-authorized
-            var payment = await _repo.GetByOrderIdAsync(cmd.OrderId, context.CancellationToken);
+            var payment = await _uow.Payment.GetByOrderIdAsync(cmd.OrderId, context.CancellationToken);
             if (payment == null)
             {
                 _logger.LogWarning("Payment record not found for Order {OrderId}", cmd.OrderId);
@@ -51,7 +51,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
                 payment.TransactionId = transactionId;
                 payment.CompletedAt = DateTime.UtcNow;
                 payment.Status = PaymentStatus.Captured; // already success, keep or set to Captured if you add new enum
-                await _repo.SaveChangesAsync(context.CancellationToken);
+                await _uow.SaveChangesAsync(context.CancellationToken);
 
                 _logger.LogInformation("✅ Payment captured for Order {OrderId}, Tx={Tx}", cmd.OrderId, transactionId);
                 await context.Publish(new PaymentCapturedEvent(cmd.OrderId, cmd.Amount, transactionId, DateTime.UtcNow));

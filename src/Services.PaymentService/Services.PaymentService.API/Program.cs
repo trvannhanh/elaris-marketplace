@@ -3,7 +3,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Services.PaymentService.API.Grpc;
-using Services.PaymentService.Application.Payments.Commands;
+using Services.PaymentService.Application.Payments.Commands.CreatePayment;
 using Services.PaymentService.Infrastructure.Extensions;
 using Services.PaymentService.Infrastructure.Persistence;
 

@@ -8,12 +8,12 @@ namespace Services.PaymentService.Application.Payments.Commands.PreAuthorize
     public class PreAuthorizeCommandHandler
     : IRequestHandler<PreAuthorizeCommand, PreAuthorizeResult>
     {
-        private readonly IPaymentRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly ILogger<PreAuthorizeCommandHandler> _logger;
 
-        public PreAuthorizeCommandHandler(IPaymentRepository repo, ILogger<PreAuthorizeCommandHandler> logger)
+        public PreAuthorizeCommandHandler(IUnitOfWork uow, ILogger<PreAuthorizeCommandHandler> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _logger = logger;
         }
 
@@ -33,8 +33,8 @@ namespace Services.PaymentService.Application.Payments.Commands.PreAuthorize
                 CompletedAt = DateTime.UtcNow
             };
 
-            await _repo.AddAsync(payment, ct);
-            await _repo.SaveChangesAsync(ct);
+            await _uow.Payment.AddAsync(payment, ct);
+            await _uow.SaveChangesAsync(ct);
 
             return new PreAuthorizeResult(
                 Success: authorized,

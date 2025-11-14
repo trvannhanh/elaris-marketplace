@@ -10,12 +10,12 @@ namespace Services.PaymentService.Infrastructure.Consumers
 {
     public class RefundPaymentConsumer : IConsumer<RefundPaymentCommand>
     {
-        private readonly IPaymentRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly ILogger<RefundPaymentConsumer> _logger;
 
-        public RefundPaymentConsumer(IPaymentRepository repo, ILogger<RefundPaymentConsumer> logger)
+        public RefundPaymentConsumer(IUnitOfWork uow, ILogger<RefundPaymentConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _logger = logger;
         }
 
@@ -23,7 +23,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
         {
             var cmd = context.Message;
 
-            var payment = await _repo.GetByOrderIdAsync(cmd.OrderId, context.CancellationToken);
+            var payment = await _uow.Payment.GetByOrderIdAsync(cmd.OrderId, context.CancellationToken);
             if (payment == null)
             {
                 _logger.LogWarning("Payment not found for refund: Order {OrderId}", cmd.OrderId);
@@ -48,7 +48,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
                 payment.RefundedAt = DateTime.UtcNow;
                 payment.RefundReason = cmd.Reason;
 
-                await _repo.SaveChangesAsync(context.CancellationToken);
+                await _uow.SaveChangesAsync(context.CancellationToken);
 
                 _logger.LogInformation(
                     "Payment refunded for Order {OrderId}. Amount: {Amount}. Reason: {Reason}",
