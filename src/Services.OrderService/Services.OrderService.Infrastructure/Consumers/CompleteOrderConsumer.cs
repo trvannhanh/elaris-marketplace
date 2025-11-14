@@ -8,18 +8,18 @@ namespace Services.OrderService.Infrastructure.Consumers
 {
     public class CompleteOrderConsumer : IConsumer<CompleteOrderCommand>
     {
-        private readonly IOrderRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly ILogger<CompleteOrderConsumer> _logger;
 
-        public CompleteOrderConsumer(IOrderRepository repo, ILogger<CompleteOrderConsumer> logger)
+        public CompleteOrderConsumer(IUnitOfWork uow, ILogger<CompleteOrderConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _logger = logger;
         }
 
         public async Task Consume(ConsumeContext<CompleteOrderCommand> context)
         {
-            var order = await _repo.GetByIdAsync(context.Message.OrderId, context.CancellationToken);
+            var order = await _uow.Order.GetByIdAsync(context.Message.OrderId, context.CancellationToken);
             if (order == null)
             {
                 _logger.LogWarning("❌ Order {OrderId} not found for completion", context.Message.OrderId);
@@ -28,7 +28,7 @@ namespace Services.OrderService.Infrastructure.Consumers
 
             order.Status = OrderStatus.Completed;
             order.CompletedAt = DateTime.UtcNow;
-            await _repo.SaveChangesAsync(context.CancellationToken);
+            await _uow.SaveChangesAsync(context.CancellationToken);
 
             _logger.LogInformation("✅ Order {OrderId} completed successfully", context.Message.OrderId);
         }

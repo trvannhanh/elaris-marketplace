@@ -2,6 +2,10 @@
 
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Services.PaymentService.API.Grpc;
 using Services.PaymentService.Application.Payments.Commands.CreatePayment;
 using Services.PaymentService.Infrastructure.Extensions;
@@ -18,6 +22,30 @@ builder.Services.AddInfrastructure(conn);
 // MediatR
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(CreatePaymentCommand).Assembly));
+
+// OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Services.PaymentService"))
+    //traces
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddSource("MassTransit")
+        .AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317")))
+    //metrics
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter("MassTransit")
+        .AddPrometheusExporter());
+
+//logs
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeScopes = true;
+    options.ParseStateValues = true;
+    options.AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317"));
+});
 
 // Swagger + controllers
 builder.Services.AddControllers();

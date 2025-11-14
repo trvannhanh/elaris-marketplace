@@ -47,10 +47,5 @@ namespace Services.OrderService.Infrastructure.Repositories
         public async Task<List<Order>> PaginateAsync(
             IQueryable<Order> query, int page, int pageSize, CancellationToken ct)
             => await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-
-        public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
-        {
-            return await _db.SaveChangesAsync(cancellationToken);
-        }
     }
 }

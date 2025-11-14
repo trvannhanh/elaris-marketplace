@@ -17,6 +17,7 @@ using Polly;
 using Services.InventoryService;
 using Grpc.Core;
 using Services.PaymentService;
+using OpenTelemetry.Logs;
 
 
 
@@ -28,19 +29,31 @@ var conn = builder.Configuration.GetConnectionString("DefaultConnection")
            ?? Environment.GetEnvironmentVariable("DEFAULT_CONNECTION");
 // Infra setup
 builder.Services.AddInfrastructure(conn, builder.Configuration);
+
+
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Services.OrderService"))
+    //traces
     .WithTracing(t => t
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddSource("MassTransit")
         .AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317")))
+    //metrics
     .WithMetrics(m => m
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddMeter("MassTransit")
         .AddPrometheusExporter());
+
+//logs
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeScopes = true;
+    options.ParseStateValues = true;
+    options.AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317"));
+});
 
 builder.Services.AddControllers();
 

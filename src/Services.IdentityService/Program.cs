@@ -6,6 +6,9 @@ using Microsoft.OpenApi.Models;
 using OpenTelemetry.Trace;
 using Services.IdentityService.Security;
 using Services.IdentityService;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Logs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -144,14 +147,29 @@ builder.Services.AddAuthorization(options =>
     });
 });
 
-// OpenTelemetry (trace/log)
+// OpenTelemetry
 builder.Services.AddOpenTelemetry()
-    .WithTracing(b =>
-    {
-        b.AddAspNetCoreInstrumentation()
-         .AddHttpClientInstrumentation()
-         .AddConsoleExporter();
-    });
+    .ConfigureResource(r => r.AddService("Services.IdentityService"))
+    //traces
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddSource("MassTransit")
+        .AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317")))
+    //metrics
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter("MassTransit")
+        .AddPrometheusExporter());
+
+//logs
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeScopes = true;
+    options.ParseStateValues = true;
+    options.AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317"));
+});
 
 builder.Services.AddCors(opt =>
 {

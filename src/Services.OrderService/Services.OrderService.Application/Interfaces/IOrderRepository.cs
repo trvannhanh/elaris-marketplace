@@ -10,6 +10,5 @@ namespace Services.OrderService.Application.Interfaces
         IQueryable<Order> Query();
         Task<int> CountAsync(IQueryable<Order> query, CancellationToken ct);
         Task<List<Order>> PaginateAsync(IQueryable<Order> query, int page, int pageSize, CancellationToken ct);
-        Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     }
 }

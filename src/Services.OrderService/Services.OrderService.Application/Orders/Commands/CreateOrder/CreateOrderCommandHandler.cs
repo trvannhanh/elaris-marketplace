@@ -9,16 +9,16 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
 {
     public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Order>
     {
-        private readonly IOrderRepository _orderRepository;
+        private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly IInventoryGrpcClient _inventoryClient;
         private readonly IPaymentGrpcClient _paymentClient;
         private readonly ILogger<CreateOrderCommandHandler> _logger;
 
 
-        public CreateOrderCommandHandler(IOrderRepository orderRepository, IPublishEndpoint publishEndpoint, IInventoryGrpcClient inventoryClient, IPaymentGrpcClient paymentClient, ILogger<CreateOrderCommandHandler> logger)
+        public CreateOrderCommandHandler(IUnitOfWork uow, IPublishEndpoint publishEndpoint, IInventoryGrpcClient inventoryClient, IPaymentGrpcClient paymentClient, ILogger<CreateOrderCommandHandler> logger)
         {
-            _orderRepository = orderRepository;
+            _uow = uow;
             _publishEndpoint = publishEndpoint;
             _inventoryClient = inventoryClient;
             _paymentClient = paymentClient;
@@ -79,7 +79,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
             //_logger.LogInformation("Thanh toán tạm giữ thành công: {PaymentId}", paymentResult.PaymentId);
 
             // 1. Lưu Order vào DB
-            await _orderRepository.AddAsync(order, cancellationToken);
+            await _uow.Order.AddAsync(order, cancellationToken);
 
             _logger.LogInformation("Order . Publishing event...");
 
@@ -105,7 +105,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
             }
 
             // 4. SaveChanges → Lưu cả Order + OutboxMessage trong 1 transaction
-            await _orderRepository.SaveChangesAsync(cancellationToken);
+            await _uow.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("✅ Order {OrderId} created and OrderCreatedEvent published via Outbox", order.Id);
 
