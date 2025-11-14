@@ -10,8 +10,10 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
     public State AwaitingInventory { get; private set; } = null!;
     public State InventoryReserved { get; private set; } = null!;
     public State PaymentProcessed { get; private set; } = null!;
+    public State AwaitingCapturePayment { get; private set; } = null!;
     public State Completed { get; private set; } = null!;
     public State Failed { get; private set; } = null!;
+    public State Refunding { get; private set; } = null!;
 
     // ======== CÁC SỰ KIỆN (EVENTS) NHẬN TỪ CÁC SERVICE KHÁC ========
     public Event<OrderCreatedEvent> OrderCreated { get; private set; } = null!;
@@ -19,8 +21,12 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
     public Event<OrderStockRejectedEvent> StockRejected { get; private set; } = null!;
     public Event<PaymentSucceededEvent> PaymentSucceeded { get; private set; } = null!;
     public Event<PaymentFailedEvent> PaymentFailed { get; private set; } = null!;
+    public Event<PaymentCapturedEvent> PaymentCaptured { get; private set; } = null!;
+    public Event<PaymentCaptureFailedEvent> PaymentCaptureFailed { get; private set; } = null!;
     public Event<InventoryUpdatedEvent> InventoryUpdated { get; private set; } = null!;
     public Event<InventoryFailedEvent> InventoryUpdateFailed { get; private set; } = null!;
+    public Event<RefundSucceededEvent> RefundSucceeded { get; private set; } = null!;
+    public Event<RefundFailedEvent> RefundFailed { get; private set; } = null!;
 
     // ======== TIMEOUT EVENTS ========
     public Schedule<OrderState, InventoryTimeout> InventoryTimeout { get; private set; } = null!;
@@ -37,8 +43,12 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
         Event(() => StockRejected, x => x.CorrelateById(ctx => ctx.Message.OrderId));
         Event(() => PaymentSucceeded, x => x.CorrelateById(ctx => ctx.Message.OrderId));
         Event(() => PaymentFailed, x => x.CorrelateById(ctx => ctx.Message.OrderId));
+        Event(() => PaymentCaptured, x => x.CorrelateById(ctx => ctx.Message.OrderId));
+        Event(() => PaymentCaptureFailed, x => x.CorrelateById(ctx => ctx.Message.OrderId));
         Event(() => InventoryUpdated, x => x.CorrelateById(ctx => ctx.Message.OrderId));
         Event(() => InventoryUpdateFailed, x => x.CorrelateById(ctx => ctx.Message.OrderId));
+        Event(() => RefundSucceeded, x => x.CorrelateById(ctx => ctx.Message.OrderId));
+        Event(() => RefundFailed, x => x.CorrelateById(ctx => ctx.Message.OrderId));
 
         // ==== THIẾT LẬP TIMEOUT CHO INVENTORY VÀ PAYMENT ====
         Schedule(() => InventoryTimeout, x => x.InventoryTimeoutId, x =>
@@ -61,6 +71,7 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
                 .Then(ctx =>
                 {
                     // Lưu thông tin đơn hàng
+                    ctx.Saga.CorrelationId = ctx.Message.OrderId;
                     ctx.Saga.OrderId = ctx.Message.OrderId;
                     ctx.Saga.UserId = ctx.Message.UserId;
                     ctx.Saga.TotalPrice = ctx.Message.TotalPrice;
@@ -151,18 +162,47 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
         // --- Khi Payment đã được pre-authorize, đang xác nhận trừ hàng thật ---
         During(PaymentProcessed,
 
-            // ✅ Cập nhật kho thành công (capture thành công)
+            // ✅ Cập nhật kho thành công 
             When(InventoryUpdated)
-                .Then(ctx => ctx.Saga.CompletedAt = DateTime.UtcNow)
-                .Publish(ctx => new CompleteOrderCommand(ctx.Saga.OrderId))
-                .TransitionTo(Completed)
-                .Finalize(),
+                // Khi inventory đã update thành công: capture tiền thật
+                .Publish(ctx => new CapturePaymentCommand(ctx.Saga.OrderId, ctx.Saga.TotalPrice))
+                // đợi PaymentCapturedEvent để complete order
+                .TransitionTo(AwaitingCapturePayment),
 
             // ❌ Trừ kho thất bại → Refund tiền + Cancel đơn
             When(InventoryUpdateFailed)
                 .Then(ctx => ctx.Saga.CanceledAt = DateTime.UtcNow)
                 .Publish(ctx => new RefundPaymentCommand(ctx.Saga.OrderId, ctx.Message.Reason))
                 .Publish(ctx => new CancelOrderCommand(ctx.Saga.OrderId, "Inventory deduction failed"))
+                .TransitionTo(Refunding)
+        );
+
+        // Khi Cập nhật kho đã thành công, đang đợi Capture tiền thật
+        During(AwaitingCapturePayment,
+
+            // ✅ Capture payment thành công 
+            When(PaymentCaptured)
+                .Then(ctx => ctx.Saga.CompletedAt = DateTime.UtcNow)
+                .Publish(ctx => new CompleteOrderCommand(ctx.Saga.OrderId))
+                .TransitionTo(Completed)
+                .Finalize(),
+
+            // ❌ Capture paymen thất bại → Refund tiền + Cancel đơn
+            When(PaymentCaptureFailed)
+                .Then(ctx => ctx.Saga.CanceledAt = DateTime.UtcNow)
+                .Publish(ctx => new RefundPaymentCommand(ctx.Saga.OrderId, ctx.Message.Reason))
+                .Publish(ctx => new CancelOrderCommand(ctx.Saga.OrderId, "Payment capture failed"))
+                .TransitionTo(Refunding)
+        );
+
+        During(Refunding,
+            When(RefundSucceeded)
+                .Then(ctx => Console.WriteLine($"[Saga] Refund succeeded for order {ctx.Saga.OrderId}"))
+                .TransitionTo(Failed)
+                .Finalize(),
+
+            When(RefundFailed)
+                .Then(ctx => Console.WriteLine($"[Saga] Refund failed for order {ctx.Saga.OrderId}, reason: {ctx.Message.Reason}"))
                 .TransitionTo(Failed)
                 .Finalize()
         );

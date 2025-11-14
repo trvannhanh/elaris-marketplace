@@ -24,7 +24,7 @@ namespace Services.OrderService.Infrastructure.Consumers
             var ev = context.Message;
             var total = ev.Items.Sum(i => i.Price * i.Quantity);
 
-            _logger.LogInformation("Checkout received - Creating Order for User {UserId}", ev.UserId);
+            _logger.LogInformation("==== Checkout received - Creating Order for User {UserId}", ev.UserId);
 
             await _mediator.Send(new CreateOrderCommand(
                 ev.UserId,

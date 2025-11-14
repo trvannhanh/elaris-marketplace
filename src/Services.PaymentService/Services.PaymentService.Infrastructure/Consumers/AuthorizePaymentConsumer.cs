@@ -9,12 +9,12 @@ namespace Services.PaymentService.Infrastructure.Consumers
 {
     public class AuthorizePaymentConsumer : IConsumer<AuthorizePaymentCommand>
     {
-        private readonly IPaymentRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publisher;
 
-        public AuthorizePaymentConsumer(IPaymentRepository repo, IPublishEndpoint publisher)
+        public AuthorizePaymentConsumer(IUnitOfWork uow, IPublishEndpoint publisher)
         {
-            _repo = repo;
+            _uow = uow;
             _publisher = publisher;
 
         }
@@ -22,23 +22,23 @@ namespace Services.PaymentService.Infrastructure.Consumers
         {
             var cmd = context.Message;
             var payment = new Payment { OrderId = cmd.OrderId, Amount = cmd.Amount, Status = PaymentStatus.Pending };
-            await _repo.AddAsync(payment, context.CancellationToken);
+            await _uow.Payment.AddAsync(payment, context.CancellationToken);
 
             await Task.Delay(1000);
-            var success = new Random().NextDouble() > 0.2;
+            var authorized = new Random().NextDouble() > 0.2;
 
-            if (success)
+            if (authorized)
             {
-                payment.Status = PaymentStatus.Success;
+                payment.Status = PaymentStatus.Authorized;
                 payment.CompletedAt = DateTime.UtcNow;
-                await _repo.SaveChangesAsync(context.CancellationToken);
-                await context.Publish(new PaymentSucceededEvent(cmd.OrderId, cmd.Amount, new(), payment.CompletedAt.Value));
+                await _uow.SaveChangesAsync(context.CancellationToken);
+                await context.Publish(new PaymentSucceededEvent(cmd.OrderId, cmd.Amount, payment.CompletedAt.Value));
             }
             else
             {
                 payment.Status = PaymentStatus.Failed;
                 payment.CompletedAt = DateTime.UtcNow;
-                await _repo.SaveChangesAsync(context.CancellationToken);
+                await _uow.SaveChangesAsync(context.CancellationToken);
                 await context.Publish(new PaymentFailedEvent(cmd.OrderId, cmd.Amount, "Gateway error", payment.CompletedAt.Value));
             }
         }

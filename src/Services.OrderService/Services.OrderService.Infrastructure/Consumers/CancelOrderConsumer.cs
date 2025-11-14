@@ -8,30 +8,30 @@ namespace Services.OrderService.Infrastructure.Consumers
 {
     public class CancelOrderConsumer : IConsumer<CancelOrderCommand>
     {
-        private readonly IOrderRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly ILogger<CancelOrderConsumer> _logger;
 
-        public CancelOrderConsumer(IOrderRepository repo, ILogger<CancelOrderConsumer> logger)
+        public CancelOrderConsumer(IUnitOfWork uow, ILogger<CancelOrderConsumer> logger)
         {
-            _repo = repo;
+            _uow = uow;
             _logger = logger;
         }
 
         public async Task Consume(ConsumeContext<CancelOrderCommand> context)
         {
-            var order = await _repo.GetByIdAsync(context.Message.OrderId, context.CancellationToken);
+            var order = await _uow.Order.GetByIdAsync(context.Message.OrderId, context.CancellationToken);
             if (order == null)
             {
-                _logger.LogWarning("Order {OrderId} not found for cancellation", context.Message.OrderId);
+                _logger.LogWarning("❌ Order {OrderId} not found for cancellation", context.Message.OrderId);
                 return;
             }
 
             order.Status = OrderStatus.Cancelled;
             order.CancelledAt = DateTime.UtcNow;
             order.CancellReason = context.Message.Reason;
-            await _repo.SaveChangesAsync(context.CancellationToken);
+            await _uow.SaveChangesAsync(context.CancellationToken);
 
-            _logger.LogInformation("Order {OrderId} canceled: {Reason}", context.Message.OrderId, context.Message.Reason);
+            _logger.LogInformation("✅ Order {OrderId} canceled: {Reason}", context.Message.OrderId, context.Message.Reason);
         }
     }
 }

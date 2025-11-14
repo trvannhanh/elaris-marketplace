@@ -3,16 +3,16 @@ using MediatR;
 using Services.PaymentService.Application.Interfaces;
 using Services.PaymentService.Domain.Entities;
 
-namespace Services.PaymentService.Application.Payments.Commands
+namespace Services.PaymentService.Application.Payments.Commands.CreatePayment
 {
     public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand, Payment>
     {
-        private readonly IPaymentRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publisher;
 
-        public CreatePaymentCommandHandler(IPaymentRepository repo, IPublishEndpoint publisher)
+        public CreatePaymentCommandHandler(IUnitOfWork uow, IPublishEndpoint publisher)
         {
-            _repo = repo;
+            _uow = uow;
             _publisher = publisher;
         }
 
@@ -25,8 +25,8 @@ namespace Services.PaymentService.Application.Payments.Commands
                 Status = PaymentStatus.Pending
             };
 
-            await _repo.AddAsync(payment, ct);
-            await _repo.SaveChangesAsync(ct);
+            await _uow.Payment.AddAsync(payment, ct);
+            await _uow.SaveChangesAsync(ct);
 
             return payment;
         }

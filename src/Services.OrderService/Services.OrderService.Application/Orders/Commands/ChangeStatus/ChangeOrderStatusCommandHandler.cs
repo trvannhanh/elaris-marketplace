@@ -8,18 +8,18 @@ namespace Services.OrderService.Application.Orders.Commands.ChangeStatus
     public class ChangeOrderStatusCommandHandler
         : IRequestHandler<ChangeOrderStatusCommand, bool>
     {
-        private readonly IOrderRepository _repo;
+        private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publisher;
 
-        public ChangeOrderStatusCommandHandler(IOrderRepository repo, IPublishEndpoint publisher)
+        public ChangeOrderStatusCommandHandler(IUnitOfWork uow, IPublishEndpoint publisher)
         {
-            _repo = repo;
+            _uow = uow;
             _publisher = publisher;
         }
 
         public async Task<bool> Handle(ChangeOrderStatusCommand request, CancellationToken ct)
         {
-            var order = await _repo.GetByIdAsync(request.OrderId, ct);
+            var order = await _uow.Order.GetByIdAsync(request.OrderId, ct);
             if (order is null) return false;
 
             switch (request.NewStatus)
@@ -40,7 +40,7 @@ namespace Services.OrderService.Application.Orders.Commands.ChangeStatus
                     throw new InvalidOperationException("Invalid status");
             }
             
-            await _repo.SaveChangesAsync(ct);
+            await _uow.SaveChangesAsync(ct);
 
             await _publisher.Publish(
                 new OrderStatusUpdatedEvent(order.Id, order.Status.ToString(), DateTime.UtcNow),

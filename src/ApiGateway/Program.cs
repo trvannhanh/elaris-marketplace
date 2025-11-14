@@ -1,6 +1,8 @@
 ﻿using ApiGateway.Middlewares;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -76,7 +78,18 @@ builder.Services.AddOpenTelemetry()
         .AddOtlpExporter(opt =>
         {
             opt.Endpoint = new Uri("http://otel-collector:4317");
-        }));
+        }))
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddPrometheusExporter());
+
+builder.Logging.AddOpenTelemetry(o => {
+    o.IncludeScopes = true;
+    o.ParseStateValues = true;
+    o.AddOtlpExporter(ot => ot.Endpoint = new Uri("http://otel-collector:4317"));
+});
+
 
 // Add Swagger UI cho Gateway
 builder.Services.AddEndpointsApiExplorer();
@@ -121,6 +134,7 @@ app.Use(async (context, next) =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+
 
 // Swagger
 app.UseMiddleware<SwaggerAggregatorMiddleware>();

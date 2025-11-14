@@ -1,8 +1,13 @@
-
+﻿
 
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using Services.PaymentService.Application.Payments.Commands;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Services.PaymentService.API.Grpc;
+using Services.PaymentService.Application.Payments.Commands.CreatePayment;
 using Services.PaymentService.Infrastructure.Extensions;
 using Services.PaymentService.Infrastructure.Persistence;
 
@@ -18,10 +23,50 @@ builder.Services.AddInfrastructure(conn);
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(CreatePaymentCommand).Assembly));
 
+// OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("Services.PaymentService"))
+    //traces
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddSource("MassTransit")
+        .AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317")))
+    //metrics
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter("MassTransit")
+        .AddPrometheusExporter());
+
+//logs
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeScopes = true;
+    options.ParseStateValues = true;
+    options.AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317"));
+});
+
 // Swagger + controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+
+builder.Services.AddGrpc(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    // gRPC endpoint nội bộ (HTTP/2)
+    options.ListenAnyIP(8081, o => o.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2);
+
+    // REST + Swagger endpoint (HTTP/1.1)
+    options.ListenAnyIP(8080, o => o.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1);
+});
+
 
 var app = builder.Build();
 
@@ -32,6 +77,10 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
     db.Database.Migrate();
 }
+
+app.MapGrpcService<PaymentGrpcService>();
+
+app.MapGet("/", () => "PaymentGrpcService is running...");
 
 app.MapControllers();
 app.Run();

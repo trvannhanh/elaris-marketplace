@@ -12,6 +12,7 @@ using Services.InventoryService.Application.Common.Mappings;
 using Services.InventoryService.Application.Interfaces;
 using Services.InventoryService.Infrastructure.Repositories;
 using Services.InventoryService.API.Grpc;
+using OpenTelemetry.Logs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,16 +46,26 @@ builder.Services.AddScoped<IMapper, ServiceMapper>();
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Services.InventoryService"))
+    //traces
     .WithTracing(t => t
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddSource("MassTransit")
         .AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317")))
+    //metrics
     .WithMetrics(m => m
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddMeter("MassTransit")
         .AddPrometheusExporter());
+
+//logs
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeScopes = true;
+    options.ParseStateValues = true;
+    options.AddOtlpExporter(o => o.Endpoint = new Uri("http://otel-collector:4317"));
+});
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

@@ -8,6 +8,7 @@ namespace BuildingBlocks.Contracts.Commands
     public record ConfirmInventoryReservationCommand(Guid OrderId, List<InventoryItemReserve> Items);
 
     // Lệnh từ Saga → Payment
+    public record CapturePaymentCommand(Guid OrderId, decimal Amount);
     public record AuthorizePaymentCommand(Guid OrderId, decimal Amount, string UserId);
     public record RefundPaymentCommand(Guid OrderId, string Reason);
 
