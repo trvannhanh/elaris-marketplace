@@ -31,7 +31,7 @@ namespace Services.InventoryService.Infrastructure.Consumers
                 foreach (var item in cmd.Items)
                 {
                     await _uow.Inventory.ConfirmReservationAsync(item.ProductId, item.Quantity, context.CancellationToken);
-                    _logger.LogInformation("ConfirmReservation stock: {ProductId} x {Quantity}", item.ProductId, item.Quantity);
+                    _logger.LogInformation("====== ConfirmReservation stock: {ProductId} x {Quantity}", item.ProductId, item.Quantity);
                 }
 
                 await _uow.SaveChangesAsync(context.CancellationToken);
@@ -42,13 +42,13 @@ namespace Services.InventoryService.Infrastructure.Consumers
                     DateTime.UtcNow
                 ));
 
-                _logger.LogInformation("Inventory confirmed for Order {OrderId}", cmd.OrderId);
+                _logger.LogInformation("✅ Inventory confirmed for Order {OrderId}", cmd.OrderId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to confirm inventory for Order {OrderId}", cmd.OrderId);
+                _logger.LogError(ex, "❌ Failed to confirm inventory for Order {OrderId}", cmd.OrderId);
 
-                await context.Publish(new InventoryFailedEvent(
+                await context.Publish(new InventoryUpdateFailedEvent(
                     cmd.OrderId,
                     ex.Message,
                     DateTime.UtcNow

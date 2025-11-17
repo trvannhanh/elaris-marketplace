@@ -1,5 +1,17 @@
 ﻿namespace BuildingBlocks.Contracts.Events
 {
+    public record PaymentAuthorizedEvent(
+        Guid OrderId,
+        decimal Amount,
+        DateTime CompletedAt
+    );
+    public record PaymentAuthorizeFailedEvent(
+        Guid OrderId,
+        decimal Amount,
+        string Reason,
+        DateTime FailedAt
+    );
+
     public record PaymentCapturedEvent(
         Guid OrderId, 
         decimal Amount,
@@ -13,27 +25,26 @@
         DateTime FailedAt
     );
 
-    public record PaymentSucceededEvent(
-        Guid OrderId, 
-        decimal Amount,
-        DateTime CompletedAt
+    public record PaymentVoidedEvent(
+        Guid OrderId,
+        string Reason,
+        DateTime Timestamp
     );
 
-    public record PaymentFailedEvent(
-        Guid OrderId, 
-        decimal Amount, 
-        string Reason, 
+    public record PaymentVoidFailedEvent(
+        Guid OrderId,
+        string Reason,
         DateTime FailedAt
     );
 
-    public record RefundSucceededEvent(
+    public record PaymentRefundedEvent(
         Guid OrderId,
         decimal Amount,
         string Reason,
         DateTime RefundedAt
     );
 
-    public record RefundFailedEvent(
+    public record PaymentRefundFailedEvent(
         Guid OrderId,
         decimal Amount,
         string Reason,

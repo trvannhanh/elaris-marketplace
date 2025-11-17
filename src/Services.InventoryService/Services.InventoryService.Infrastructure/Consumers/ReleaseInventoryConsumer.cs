@@ -1,4 +1,5 @@
 ﻿using BuildingBlocks.Contracts.Commands;
+using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Services.InventoryService.Application.Interfaces;
@@ -32,10 +33,16 @@ namespace Services.InventoryService.Infrastructure.Consumers
 
             foreach (var item in cmd.Items)
             {
-                await _uow.Inventory.ReleaseReservationAsync(item.ProductId, item.Quantity, ct);
-                _logger.LogInformation("Released: {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
+                var success = await _uow.Inventory.ReleaseReservationAsync(item.ProductId, item.Quantity, ct);
+                if (!success)
+                {
+                    _logger.LogWarning("❌ Stock Released error for {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
+                    return;
+                }
+                _logger.LogInformation("✅ Released: {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
             }
 
+            _logger.LogInformation("✅ Released inventory for Order {OrderId}", cmd.OrderId);
             await _uow.SaveChangesAsync(ct);
         }
     }

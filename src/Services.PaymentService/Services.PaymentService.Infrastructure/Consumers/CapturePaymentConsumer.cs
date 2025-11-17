@@ -27,7 +27,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
             var payment = await _uow.Payment.GetByOrderIdAsync(cmd.OrderId, context.CancellationToken);
             if (payment == null)
             {
-                _logger.LogWarning("Payment record not found for Order {OrderId}", cmd.OrderId);
+                _logger.LogWarning("❌ Payment record not found for Order {OrderId}", cmd.OrderId);
                 await context.Publish(new PaymentCaptureFailedEvent(cmd.OrderId, "Payment record not found", DateTime.UtcNow));
                 return;
             }
@@ -36,7 +36,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
             // Kiểm tra trạng thái phải là Authorized/Success (tạm giữ)
             if (payment.Status != PaymentStatus.Authorized) 
             {
-                _logger.LogWarning("Payment for Order {OrderId} not in authorized state: {Status}", cmd.OrderId, payment.Status);
+                _logger.LogWarning("❌ Payment for Order {OrderId} not in authorized state: {Status}", cmd.OrderId, payment.Status);
                 await context.Publish(new PaymentCaptureFailedEvent(cmd.OrderId, $"Invalid payment state: {payment.Status}", DateTime.UtcNow));
                 return;
             }
@@ -58,7 +58,7 @@ namespace Services.PaymentService.Infrastructure.Consumers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Capture failed for Order {OrderId}", cmd.OrderId);
+                _logger.LogError(ex, "❌ Capture failed for Order {OrderId}", cmd.OrderId);
                 await context.Publish(new PaymentCaptureFailedEvent(cmd.OrderId, ex.Message, DateTime.UtcNow));
             }
         }

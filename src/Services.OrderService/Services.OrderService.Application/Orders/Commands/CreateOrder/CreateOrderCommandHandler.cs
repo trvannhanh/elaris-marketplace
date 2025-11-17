@@ -28,11 +28,12 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
         public async Task<Order> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
         {
 
-            //0.5 Kiểm tra tồn kho qua gRPC
+            //1. Kiểm tra tồn kho qua gRPC (sync)
             foreach (var item in request.Items)
             {
                 var result = _inventoryClient.CheckStock(item.ProductId, item.Quantity);
 
+                // Có item hết hàng
                 if (!result.InStock)
                 {
                     _logger.LogWarning("❌ Out of stock: {ProductId}, only {Stock} left",
@@ -45,14 +46,27 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 _logger.LogInformation("✅ Stock OK for {ProductId}: {Available}", item.ProductId, result.AvailableStock);
             }
 
+            // 2. Kiểm tra card thanh toán qua gRPC (sync)
+            // lấy cardToken từ request (client/UI phải gửi cardToken trong CreateOrderCommand)
+            var cardToken = request.CardToken; 
+            var cardCheck = _paymentClient.CheckCard(request.UserId, cardToken, request.TotalPrice);
 
+            // Kết quả kiểm tra Card
+            if (!cardCheck.Valid || cardCheck.Blocked || !cardCheck.SufficientLimit)
+            {
+                var reason = cardCheck.Message ?? "Card invalid or insufficient";
+                _logger.LogWarning("❌ Card check failed for user {UserId}: {Reason}", request.UserId, reason);
+                throw new InvalidOperationException($"❌ Payment check failed: {reason}");
+            }
+
+            // 3. Tạo Order
             var order = new Order
             {
                 Id = Guid.NewGuid(),
                 UserId = request.UserId,
                 CreatedAt = DateTime.UtcNow,
                 Status = OrderStatus.Pending,
-                TotalPrice = request.Items.Sum(x => x.Price * x.Quantity),
+                TotalPrice = request.TotalPrice,
                 Items = request.Items.Select(i => new OrderItem
                 {
                     Id = Guid.NewGuid(),
@@ -63,27 +77,12 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 }).ToList()
             };
 
-
-            //var paymentResult = _paymentClient.PreAuthorize(
-            //    order.Id,
-            //    order.TotalPrice,
-            //    request.UserId
-            //);
-
-            //if (!paymentResult.Success)
-            //{
-            //    _logger.LogWarning("Thanh toán tạm giữ thất bại: {Message}", paymentResult.Message);
-            //    throw new InvalidOperationException($"Thanh toán thất bại: {paymentResult.Message}");
-            //}
-
-            //_logger.LogInformation("Thanh toán tạm giữ thành công: {PaymentId}", paymentResult.PaymentId);
-
-            // 1. Lưu Order vào DB
+            // 3,5. Add Order
             await _uow.Order.AddAsync(order, cancellationToken);
 
-            _logger.LogInformation("Order . Publishing event...");
+            _logger.LogInformation(" ========= Created Order . Publishing OrderCreated event...");
 
-            // 2. Tạo event
+            // 4. Tạo event OrderCreated 
             var eventToPublish = new OrderCreatedEvent(
                 order.Id,
                 order.UserId,
@@ -93,7 +92,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 order.Items.Select(i => new BasketItemEvent(i.ProductId, i.Name, i.Price, i.Quantity)).ToList()
             );
 
-            // 3. Publish → MassTransit sẽ tự lưu vào Outbox + DB transaction
+            // 4,5. Publish → MassTransit sẽ tự lưu vào Outbox + DB transaction
             try
             {
                 await _publishEndpoint.Publish(eventToPublish, cancellationToken);
@@ -104,7 +103,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 _logger.LogError(ex, "❌ Failed to publish OrderCreatedEvent ");
             }
 
-            // 4. SaveChanges → Lưu cả Order + OutboxMessage trong 1 transaction
+            // 5. SaveChanges → Lưu cả Order + OutboxMessage trong 1 transaction
             await _uow.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("✅ Order {OrderId} created and OrderCreatedEvent published via Outbox", order.Id);

@@ -6,6 +6,6 @@ namespace Services.OrderService.Application.Interfaces
 {
     public interface IPaymentGrpcClient
     {
-        PreAuthorizeResponse PreAuthorize(Guid orderId, decimal amount, string userId);
+        CheckCardResponse CheckCard(string userId, string cardToken, decimal amount);
     }
 }

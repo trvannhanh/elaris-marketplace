@@ -14,7 +14,7 @@ namespace Services.InventoryService.Application.Interfaces
         Task AddAsync(InventoryItem inventory, CancellationToken ct = default);
 
         Task<bool> TryReserveStockAsync(string productId, int quantity, CancellationToken ct);
-        Task ReleaseReservationAsync(string productId, int quantity, CancellationToken ct);
+        Task<bool> ReleaseReservationAsync(string productId, int quantity, CancellationToken ct);
         Task ConfirmReservationAsync(string productId, int quantity, CancellationToken ct);
     }
 }

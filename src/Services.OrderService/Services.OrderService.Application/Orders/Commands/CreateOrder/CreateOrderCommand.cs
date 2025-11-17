@@ -7,6 +7,9 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
 {
     public record CreateOrderCommand(string UserId,
         List<BasketItemEvent> Items,
-        decimal TotalPrice) 
+        decimal TotalPrice,
+        string CardToken
+        ) 
     : IRequest<Order>;
 }
+

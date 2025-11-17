@@ -15,20 +15,19 @@
         DateTime UpdatedAt
     );
 
-    public record OrderItemsReservedEvent(
-        Guid OrderId,
-        List<OrderItemEntry> Items,
-        DateTime Timestamp
-    );
-
     public record OrderItemEntry(
         string ProductId,
         int Quantity
     );
 
-    public record OrderStockRejectedEvent(
+    public record OrderCompletedEvent(
         Guid OrderId,
-        string Reason, 
+        DateTime CompletedAt
+    );
+
+    public record OrderCompleteFailedEvent(
+        Guid OrderId,
+        string Reason,
         DateTime Timestamp
     );
 }

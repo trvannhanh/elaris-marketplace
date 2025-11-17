@@ -1,6 +1,4 @@
-﻿
-
-using MassTransit;
+﻿using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Services.PaymentService.Application.Interfaces;
@@ -25,6 +23,7 @@ namespace Services.PaymentService.Infrastructure.Extensions
                 x.AddConsumer<AuthorizePaymentConsumer>();
                 x.AddConsumer<RefundPaymentConsumer>();
                 x.AddConsumer<CapturePaymentConsumer>();
+                x.AddConsumer<VoidPaymentConsumer>();
 
                 x.UsingRabbitMq((context, cfg) =>
                 {

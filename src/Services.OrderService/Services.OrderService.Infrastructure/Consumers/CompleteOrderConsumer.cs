@@ -1,4 +1,5 @@
 ﻿using BuildingBlocks.Contracts.Commands;
+using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Services.OrderService.Application.Interfaces;
@@ -19,6 +20,9 @@ namespace Services.OrderService.Infrastructure.Consumers
 
         public async Task Consume(ConsumeContext<CompleteOrderCommand> context)
         {
+            var cmd = context.Message;
+            var ct = context.CancellationToken;
+
             var order = await _uow.Order.GetByIdAsync(context.Message.OrderId, context.CancellationToken);
             if (order == null)
             {
@@ -26,11 +30,29 @@ namespace Services.OrderService.Infrastructure.Consumers
                 return;
             }
 
-            order.Status = OrderStatus.Completed;
-            order.CompletedAt = DateTime.UtcNow;
-            await _uow.SaveChangesAsync(context.CancellationToken);
+            try
+            {
+                order.Status = OrderStatus.Completed;
+                order.CompletedAt = DateTime.UtcNow;
+                await _uow.SaveChangesAsync(context.CancellationToken);
+  
+                await context.Publish(new OrderCompletedEvent(cmd.OrderId, DateTime.UtcNow), ct);
 
-            _logger.LogInformation("✅ Order {OrderId} completed successfully", context.Message.OrderId);
+                _logger.LogInformation("✅ Order {OrderId} completed successfully", cmd.OrderId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Failed to complete order for Order {OrderId}", cmd.OrderId);
+
+                await context.Publish(new OrderCompleteFailedEvent(
+                    cmd.OrderId,
+                    ex.Message,
+                    DateTime.UtcNow
+                ));
+
+                throw;
+            }
+
         }
     }
 }

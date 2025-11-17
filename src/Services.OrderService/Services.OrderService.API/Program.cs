@@ -107,8 +107,6 @@ builder.Services.AddGrpcClient<PaymentService.PaymentServiceClient>(o =>
         ?? "http://paymentservice:8080"
     );
 })
-
-
 .ConfigureChannel(channel =>
 {
     channel.Credentials = ChannelCredentials.Insecure;
