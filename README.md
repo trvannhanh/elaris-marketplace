@@ -20,7 +20,6 @@
   <a href="#local-development">Local Development</a> •
   <a href="#testing--observability">Testing & Observability</a> •
   <a href="#deployment--roadmap">Deployment & Roadmap</a> •
-  <a href="#ui--ux">UI / UX</a>
 </p>
 
 ---
@@ -57,8 +56,6 @@ Mục tiêu chính: **thực hành kiến trúc microservice thực tế**, áp 
 </p>
 
 ```
-[ React UI (Pixel theme) ]
-          ↓
      [ Gateway (YARP) ]
           ↓
  ┌────────────────────────────┐
@@ -85,7 +82,6 @@ Mục tiêu chính: **thực hành kiến trúc microservice thực tế**, áp 
 | Databases | MongoDB, PostgreSQL, Redis |
 | Saga Orchestration | MassTransit Saga |
 | Observability | OpenTelemetry, Prometheus, Grafana, Loki |
-| Frontend | React + Tailwind (Pixel Art UI) |
 | CI/CD | GitHub Actions + Helm + Kubernetes |
 
 ---
@@ -95,7 +91,6 @@ Mục tiêu chính: **thực hành kiến trúc microservice thực tế**, áp 
 ### Prerequisites
 - Docker & Docker Compose  
 - .NET 8 SDK  
-- Node.js (for React UI)
 
 ### Setup & Run
 
@@ -116,7 +111,6 @@ dotnet run --project Services.PaymentService
 dotnet run --project Gateway
 
 # Access URLs
-Frontend: http://localhost:3000  
 Gateway API: http://localhost:8000
 ```
 
@@ -141,20 +135,6 @@ Gateway API: http://localhost:8000
 - **Dashboards:** Grafana panels per service  
 - **Alerts:** Prometheus Alertmanager  
 
----
-
-## 🎨 UI / UX
-
-<p align="center">
-  <img src="https://res.cloudinary.com/dqpkxxzaf/image/upload/v1759222700/pixel-ui-1.png" alt="Product Grid" width="700" style="margin:6px; border-radius:8px;">
-  <img src="https://res.cloudinary.com/dqpkxxzaf/image/upload/v1759222701/pixel-ui-2.png" alt="Basket" width="700" style="margin:6px; border-radius:8px;">
-  <img src="https://res.cloudinary.com/dqpkxxzaf/image/upload/v1759222702/pixel-ui-3.png" alt="Order History" width="700" style="margin:6px; border-radius:8px;">
-</p>
-
-UI hướng phong cách **pixel-art 16-bit**, với:
-- Grid sản phẩm có sprite & badge hiếm
-- Modal giỏ hàng viền pixel
-- Album “Pet Collection” dạng card retro
 ---
 
 ## 🧑‍💻 Contributors
