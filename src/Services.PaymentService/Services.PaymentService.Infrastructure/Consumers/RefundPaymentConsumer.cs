@@ -26,13 +26,13 @@ namespace Services.PaymentService.Infrastructure.Consumers
             var payment = await _uow.Payment.GetByOrderIdAsync(cmd.OrderId, context.CancellationToken);
             if (payment == null)
             {
-                _logger.LogWarning("Payment not found for refund: Order {OrderId}", cmd.OrderId);
+                _logger.LogWarning("❌ Payment not found for refund: Order {OrderId}", cmd.OrderId);
                 return;
             }
 
             if (payment.Status != PaymentStatus.Authorized)
             {
-                _logger.LogWarning("Cannot refund non-authorzied payment: {Status}", payment.Status);
+                _logger.LogWarning("❌ Cannot refund non-authorzied payment: {Status}", payment.Status);
                 return;
             }
 
@@ -50,27 +50,29 @@ namespace Services.PaymentService.Infrastructure.Consumers
 
                 await _uow.SaveChangesAsync(context.CancellationToken);
 
-                _logger.LogInformation(
-                    "Payment refunded for Order {OrderId}. Amount: {Amount}. Reason: {Reason}",
-                    cmd.OrderId, payment.Amount, cmd.Reason
-                );
-                await context.Publish(new RefundSucceededEvent(
+                
+                await context.Publish(new PaymentRefundedEvent(
                     cmd.OrderId,
                     payment.Amount,
                     cmd.Reason,
                     payment.RefundedAt.Value
                 ));
+
+                _logger.LogInformation(
+                    "✅ Payment refunded for Order {OrderId}. Amount: {Amount}. Reason: {Reason}",
+                    cmd.OrderId, payment.Amount, cmd.Reason
+                );
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Refund failed for Order {OrderId}", cmd.OrderId);
-
-                await context.Publish(new RefundFailedEvent(
+                await context.Publish(new PaymentRefundFailedEvent(
                     cmd.OrderId,
                     payment.Amount,
                     ex.Message,
                     DateTime.UtcNow
                 ));
+
+                _logger.LogError(ex, "❌ Refund failed for Order {OrderId}", cmd.OrderId);
             }
         }
     }

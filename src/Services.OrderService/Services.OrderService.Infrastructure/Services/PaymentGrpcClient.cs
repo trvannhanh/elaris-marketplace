@@ -17,24 +17,25 @@ namespace Services.OrderService.Infrastructure.Services
             _logger = logger;
         }
 
-        public PreAuthorizeResponse PreAuthorize(Guid orderId, decimal amount, string userId)
+        public CheckCardResponse CheckCard(string userId, string cardToken, decimal amount)
         {
             try
             {
-                var request = new PreAuthorizeRequest
+                var req = new CheckCardRequest
                 {
-                    OrderId = orderId.ToString(),
-                    Amount = amount.ToString("F2"),  // Chuẩn hóa 2 chữ số
-                    UserId = userId
+                    UserId = userId ?? "",
+                    CardToken = cardToken ?? "",
+                    Amount = (double)amount
                 };
 
-                // SYNC CALL - NHANH
-                return _client.PreAuthorize(request);
+                // Synchronous unary call (generated client may expose blocking overload)
+                var resp = _client.CheckCard(req);
+                return resp;
             }
             catch (RpcException ex)
             {
-                _logger.LogError(ex, "gRPC PreAuthorize failed for Order {OrderId}", orderId);
-                throw new InvalidOperationException("Không thể tạm giữ thanh toán", ex);
+                _logger.LogError(ex, "❌ gRPC CheckCard failed for user {UserId}", userId);
+                throw new InvalidOperationException("❌ Không thể kiểm tra thẻ", ex);
             }
         }
     }

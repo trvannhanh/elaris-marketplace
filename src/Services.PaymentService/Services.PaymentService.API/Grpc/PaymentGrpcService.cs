@@ -1,6 +1,7 @@
 ﻿using Grpc.Core;
 using MediatR;
 using Services.PaymentService.Application.Payments.Commands.PreAuthorize;
+using static MassTransit.ValidationResultExtensions;
 using static Services.PaymentService.PaymentService;
 
 namespace Services.PaymentService.API.Grpc
@@ -16,23 +17,25 @@ namespace Services.PaymentService.API.Grpc
             _logger = logger;
         }
 
-        public override Task<PreAuthorizeResponse> PreAuthorize(
-            PreAuthorizeRequest request,
-            ServerCallContext context)
+        public override Task<CheckCardResponse> CheckCard(CheckCardRequest request, ServerCallContext context)
         {
-            // Convert từ string → Guid, decimal
-            var orderId = Guid.Parse(request.OrderId);
-            var amount = decimal.Parse(request.Amount);
+            // Kiểm tra thẻ ở đây: gọi internal service / gateway / db
+            // Simulate:
+            bool valid = true;
+            bool blocked = false;
+            bool sufficient = request.Amount <= 30000; // fake rule
 
-            var command = new PreAuthorizeCommand(orderId, amount, request.UserId);
-            var result = _mediator.Send(command, context.CancellationToken).GetAwaiter().GetResult();
+            _logger.LogInformation("====== Card Check Result for User {UserId}: valid {valid}, blocked {blocked}, sufficient {sufficient}",
+                                    request.UserId, valid, blocked, sufficient);
 
-            return Task.FromResult(new PreAuthorizeResponse
+            var msg = valid && !blocked && sufficient ? "✅ OK" : "❌ Not allowed";
+
+            return Task.FromResult(new CheckCardResponse
             {
-                Success = result.Success,
-                PaymentId = result.PaymentId.ToString(),  // Guid → string
-                Message = result.Message,
-                Status = result.Status.ToString()
+                Valid = valid,
+                Blocked = blocked,
+                SufficientLimit = sufficient,
+                Message = msg
             });
         }
     }

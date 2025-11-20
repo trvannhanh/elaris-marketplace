@@ -33,12 +33,12 @@ namespace Services.InventoryService.Infrastructure.Consumers
                 var success = await _uow.Inventory.TryReserveStockAsync(item.ProductId, item.Quantity, ct);
                 if (!success)
                 {
-                    await context.Publish(new OrderStockRejectedEvent(
+                    await context.Publish(new InventoryReserveFailedEvent(
                         cmd.OrderId,
-                        $"Out of stock: {item.ProductId}",
+                        $"❌ Out of stock: {item.ProductId}",
                         DateTime.UtcNow), ct);
 
-                    _logger.LogWarning("Stock rejected for Order {OrderId}: {ProductId}", cmd.OrderId, item.ProductId);
+                    _logger.LogWarning("❌ Stock rejected for Order {OrderId}: {ProductId}", cmd.OrderId, item.ProductId);
                     return;
                 }
 
@@ -50,10 +50,10 @@ namespace Services.InventoryService.Infrastructure.Consumers
 
             await _uow.SaveChangesAsync(ct);
 
-            await context.Publish(new OrderItemsReservedEvent(
+            await context.Publish(new InventoryReservedEvent(
                 cmd.OrderId, reservedItems, DateTime.UtcNow), context.CancellationToken);
 
-            _logger.LogInformation("Reserved inventory for Order {OrderId}", cmd.OrderId);
+            _logger.LogInformation("✅ Reserved inventory for Order {OrderId}", cmd.OrderId);
         }
     }
 }

@@ -67,13 +67,14 @@ namespace Services.InventoryService.Infrastructure.Repositories
             return true;
         }
 
-        public async Task ReleaseReservationAsync(string productId, int quantity, CancellationToken ct)
+        public async Task<bool> ReleaseReservationAsync(string productId, int quantity, CancellationToken ct)
         {
             var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
-            if (item == null) return;
+            if (item == null) return false;
 
             item.ReservedQuantity = Math.Max(0, item.ReservedQuantity - quantity);
             _db.InventoryItems.Update(item);
+            return true;
         }
 
         public async Task ConfirmReservationAsync(string productId, int quantity, CancellationToken ct)

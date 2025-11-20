@@ -22,15 +22,18 @@ namespace Services.OrderService.Infrastructure.Saga
 
         // ===== CÁC MỐC THỜI GIAN =====
         public DateTime CreatedAt { get; set; }
-        public DateTime? ReservedAt { get; set; }
-        public DateTime? PaidAt { get; set; }
-        public DateTime? CompletedAt { get; set; }
-        public DateTime? CanceledAt { get; set; }
+        public DateTime? InventoryReservedAt { get; set; }
+        public DateTime? InventoryDecreasedAt { get; set; }
+        public DateTime? PaymentAuthorizedAt { get; set; }
+        public DateTime? PaymentCapturedAt { get; set; }
+        public DateTime? OrderCompletedAt { get; set; }
+        public DateTime? OrderCanceledAt { get; set; }
 
         // ===== CÁC ID LIÊN QUAN ĐẾN TIMEOUT =====
         // Dùng để quản lý timeout event của Inventory và Payment
         public Guid? InventoryTimeoutId { get; set; }
         public Guid? PaymentTimeoutId { get; set; }
+        public Guid? OrderTimeoutId { get; set; }
 
         // Version của Saga instance (MassTransit dùng để concurrency control)
         public int Version { get; set; }

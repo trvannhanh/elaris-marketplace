@@ -1,26 +1,21 @@
-﻿// proto/payment.proto
-syntax = "proto3";
-
+﻿syntax = "proto3";
+package payment;
 option csharp_namespace = "Services.PaymentService";
 
-package payment;
-
-// gRPC Service
 service PaymentService {
-  rpc PreAuthorize (PreAuthorizeRequest) returns (PreAuthorizeResponse);
+  // Kiểm tra thẻ / token trước khi tạo order
+  rpc CheckCard (CheckCardRequest) returns (CheckCardResponse);
 }
 
-// Request
-message PreAuthorizeRequest {
-  string order_id = 1;   // Guid → string
-  string amount = 2;     // decimal → string (F2)
-  string user_id = 3;
+message CheckCardRequest {
+  string userId = 1;    // optional: id user
+  string cardToken = 2; // token or masked card id (không truyền PAN raw)
+  double amount = 3;    // amount to check limit against
 }
 
-// Response
-message PreAuthorizeResponse {
-  bool success = 1;
-  string payment_id = 2; // Guid → string
-  string message = 3;
-  string status = 4;     // "AUTHORIZED", "FAILED"
+message CheckCardResponse {
+  bool valid = 1;            // thẻ hợp lệ (not expired, correct token)
+  bool blocked = 2;          // thẻ bị khóa
+  bool sufficientLimit = 3;  // đủ hạn mức cho giao dịch
+  string message = 4;        // không chi tiết sensitive, chỉ mô tả ngắn
 }

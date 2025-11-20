@@ -10,7 +10,8 @@ namespace BuildingBlocks.Contracts.Commands
     // Lệnh từ Saga → Payment
     public record CapturePaymentCommand(Guid OrderId, decimal Amount);
     public record AuthorizePaymentCommand(Guid OrderId, decimal Amount, string UserId);
-    public record RefundPaymentCommand(Guid OrderId, string Reason);
+    public record VoidPaymentCommand(Guid OrderId, decimal Amount, string UserId, string Reason);
+    public record RefundPaymentCommand(Guid OrderId, decimal Amount, string Reason);
 
     // Lệnh từ Saga → Order
     public record CompleteOrderCommand(Guid OrderId);

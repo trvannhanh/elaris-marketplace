@@ -1,11 +1,13 @@
 ﻿using ApiGateway.Middlewares;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using System.Threading.RateLimiting;
 
 
 // SERILOG CONFIGURATION 
@@ -69,6 +71,19 @@ builder.Services.AddCors(options =>
          .AllowAnyHeader());
 });
 
+// Output Cache
+builder.Services.AddOutputCache(options =>
+{
+    options.AddBasePolicy(policy =>
+        policy.Expire(TimeSpan.FromSeconds(10))
+              .SetVaryByHeader("Accept"));
+
+    options.AddPolicy("catalog-cache", policy =>
+        policy.Expire(TimeSpan.FromSeconds(30)));
+
+    options.AddPolicy("no-cache", b => b.NoCache());
+});
+
 // OpenTelemetry Setup 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Elaris.ApiGateway"))
@@ -104,6 +119,42 @@ builder.Services.AddSwaggerGen(c =>
 
 });
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("fixed", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromSeconds(10),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }
+        );
+    });
+
+    // 2️⃣ Giới hạn theo Client ID (token bucket)
+    options.AddPolicy("token", httpContext =>
+        RateLimitPartition.GetTokenBucketLimiter(
+            partitionKey: httpContext.User.Identity?.Name ?? "anonymous",
+            _ => new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 20,                 // tối đa 20 tokens
+                TokensPerPeriod = 10,            // refill 10 tokens
+                ReplenishmentPeriod = TimeSpan.FromSeconds(5),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }
+        )
+    );
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 // Thêm Health check Để giám sát service qua Docker compose
 builder.Services.AddHealthChecks();
 
@@ -118,6 +169,12 @@ app.UseCors("AllowAll");
 
 // Logging
 app.UseMiddleware<LoggingMiddleware>();
+
+// Output Cache
+app.UseOutputCache();
+
+// RateLimit
+app.UseRateLimiter();
 
 //Endpoint / connect/token là public (người dùng cần đăng nhập), nên nếu bạn bật UseAuthentication() toàn cục, cần thêm rule bypass.
 app.Use(async (context, next) =>
@@ -156,13 +213,29 @@ app.UseSwaggerUI(c =>
 
 });
 
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path;
+
+    if (path.StartsWithSegments("/swagger") ||
+        path.StartsWithSegments("/health") ||
+        path.StartsWithSegments("/identity/connect/token"))
+    {
+        // bypass rate-limit
+        await next();
+        return;
+    }
+
+    await next();
+});
+
 app.MapGet("/login", async context =>
 {
     await context.ChallengeAsync("oidc", new AuthenticationProperties
     {
         RedirectUri = "/"
     });
-});
+}).RequireRateLimiting("fixed");
 
 // Reverse Proxy
 app.MapReverseProxy();
