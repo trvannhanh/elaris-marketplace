@@ -110,6 +110,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=elaris_db;Username=elaris;Password=elaris_pwd
+      - IdentityServer__IssuerUri=http://identityservice:8080
     ports:
       - "5001:8080"
     depends_on:
@@ -117,6 +118,12 @@ services:
         condition: service_healthy
     networks:
       - elaris_net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/.well-known/openid-configuration"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
 
   catalogservice:
     build:
@@ -171,6 +178,10 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=ordersql;Port=5432;Database=elaris_paymentdb;Username=elaris;Password=elaris_pwd
+      # JWT Authentication Configuration
+      - Authentication__Authority=http://identityservice:8080
+      - Authentication__Audience=elaris.api
+      - Authentication__RequireHttpsMetadata=false
     ports:
       - "5004:8080"
     depends_on:
@@ -178,6 +189,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      identityservice:  # Đảm bảo IdentityService khởi động trước
+        condition: service_started
     networks:
       - elaris_net
 
