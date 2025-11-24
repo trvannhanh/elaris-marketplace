@@ -7,7 +7,6 @@ using Services.CatalogService.Features.Products.GetProducts;
 using Services.CatalogService.Features.Products.GetProduct;
 using Services.CatalogService.Features.Products.CreateProduct;
 using Services.CatalogService.Features.Products.UpdateProduct;
-using Services.CatalogService.Features.Products.UpdatePrice;
 using Services.CatalogService.Features.Products.DeleteProduct;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -16,32 +15,21 @@ using Serilog;
 using MongoDB.Driver;
 using Services.CatalogService.Models;
 using OpenTelemetry.Logs;
+using BuildingBlocks.Infrastucture.Authentication;
+using Services.CatalogService.Features.Products.GetAllProducts;
+using Services.CatalogService.Features.Products.GetMyProducts;
+using Services.CatalogService.Features.Products.GetPendingProducts;
+using Services.CatalogService.Features.Products.RejectProduct;
+using Services.CatalogService.Features.Products.ApproveProduct;
+using Microsoft.Extensions.Options;
+using Minio;
+using Services.CatalogService.Config;
+using Services.CatalogService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // MongoDB
 builder.Services.AddSingleton<MongoContext>();
-
-// JWT Auth
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        var auth = builder.Configuration.GetSection("Authentication");
-        options.Authority = auth["Authority"];
-        options.Audience = auth["Audience"];
-        options.RequireHttpsMetadata = false;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
-            NameClaimType = "name"
-        };
-    });
-
-// Authorization
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
-});
 
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
@@ -81,6 +69,31 @@ builder.Services.AddMassTransit(x =>
         cfg.ConfigureEndpoints(context);
     });
 });
+
+// ==================== JWT AUTHENTICATION ====================
+builder.Services.AddJwtAuthentication(
+    builder.Configuration,
+    authorityUrl: "http://identityservice:8080",
+    audience: "elaris.api"
+);
+
+builder.Services.AddAuthorizationPolicies();
+
+builder.Services.Configure<MinIOOptions>(
+    builder.Configuration.GetSection("MinIO"));
+
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<MinIOOptions>>().Value;
+    var client = new MinioClient()
+        .WithEndpoint(options.Endpoint)
+        .WithCredentials(options.AccessKey, options.SecretKey)
+        .WithSSL(options.UseSSL ? true : false)
+        .Build();
+    return client;
+});
+
+builder.Services.AddScoped<IFileStorageService, MinIOService>();
 
 // Serilog
 builder.Host.UseSerilog((ctx, lc) =>
@@ -153,9 +166,16 @@ app.MapHealthChecks("/health");
 // MAP TẤT CẢ ENDPOINTS
 app.MapGetProducts();
 app.MapGetProduct();
+app.MapGetAllProducts();
+app.MapGetMyProducts();
+app.MapGetPendingProducts();
+
 app.MapCreateProduct();
+
 app.MapUpdateProduct();
-app.MapUpdatePrice();
+app.MapRejectProduct();
+app.MapApproveProduct();
+
 app.MapDeleteProduct();
 
 app.Run();

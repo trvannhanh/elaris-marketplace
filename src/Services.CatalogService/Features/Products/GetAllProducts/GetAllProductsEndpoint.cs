@@ -1,25 +1,25 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDB.Driver.Core.Servers;
 using Services.CatalogService.Data;
+using Services.CatalogService.Extensions;
+using Services.CatalogService.Features.Products.GetProducts;
 using Services.CatalogService.Models;
 
-namespace Services.CatalogService.Features.Products.GetProducts
+namespace Services.CatalogService.Features.Products.GetAllProducts
 {
-    /// <summary>
-    /// Browse products - Ai cũng xem được (kể cả chưa đăng nhập)
-    /// </summary>
-    public static class GetProductsEndpoint
+    public static class GetAllProductsEndpoint
     {
-        public static void MapGetProducts(this IEndpointRouteBuilder app)
+        /// <summary>
+        /// Get all products - Chỉ ADMIN
+        /// </summary>
+        public static void MapGetAllProducts(this IEndpointRouteBuilder app)
         {
-            app.MapGet("/api/products", async ([AsParameters] GetProductsQuery query, MongoContext db) =>
+            app.MapGet("/api/products/all-products", async (HttpContext ctx, [AsParameters] GetProductsQuery query, MongoContext db) =>
             {
+                var sellerId = ctx.GetUserId();
+
                 var filterBuilder = Builders<Product>.Filter;
-                var filter = filterBuilder.And(
-                     filterBuilder.Eq(p => p.IsDeleted, false),
-                     filterBuilder.Eq(p => p.Status, ProductStatus.Approved)
-                );
+                var filter = FilterDefinition<Product>.Empty;
 
                 // 🔍 Fulltext search
                 if (!string.IsNullOrEmpty(query.Search))
@@ -47,9 +47,9 @@ namespace Services.CatalogService.Features.Products.GetProducts
 
                 // 📄 Paging
                 var skip = (query.Page - 1) * query.PageSize;
-                var total = await db.Products.CountDocumentsAsync(filter);
+                var total = await db.Products.FindIncludingDeleted(filter).CountDocumentsAsync();
                 var items = await db.Products
-                    .Find(filter)
+                    .FindIncludingDeleted(filter)
                     .Sort(sort)
                     .Skip(skip)
                     .Limit(query.PageSize)
@@ -66,11 +66,12 @@ namespace Services.CatalogService.Features.Products.GetProducts
 
                 return Results.Ok(result);
             })
-            .WithName("GetProducts")
+            .RequireAuthorization("Admin")
+            .WithName("GetAllProducts")
             .WithTags("Products")
-            .WithSummary("Get products with search, filter, sort, pagination")
+            .WithSummary("Get my products with search, filter, sort, pagination")
             .WithDescription("""
-                - Tất cả vai trò đều có thể xem danh sách sản phẩm (chưa xóa isDelete = false và đã được duyệt Approve)
+                - Admin xem danh sách tất cả product bao gồm cả đã xóa và pending
                 - Sử dụng bộ lọc với từ khóa sẽ lọc theo Name và Description của sản phẩm
                 - Sử dụng bộ theo khoảng giá từ giá bao nhiêu đến giá bao nhiêu
                 - Sử dụng bộ lọc Sort với sortField "createdat" để lọc theo ngày tạo sản phẩm và sort "asc"

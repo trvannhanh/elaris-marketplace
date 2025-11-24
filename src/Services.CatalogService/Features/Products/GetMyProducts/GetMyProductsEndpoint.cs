@@ -1,24 +1,27 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDB.Driver.Core.Servers;
 using Services.CatalogService.Data;
+using Services.CatalogService.Extensions;
+using Services.CatalogService.Features.Products.GetProducts;
 using Services.CatalogService.Models;
 
-namespace Services.CatalogService.Features.Products.GetProducts
+namespace Services.CatalogService.Features.Products.GetMyProducts
 {
-    /// <summary>
-    /// Browse products - Ai cũng xem được (kể cả chưa đăng nhập)
-    /// </summary>
-    public static class GetProductsEndpoint
+    public static class GetMyProductsEndpoint
     {
-        public static void MapGetProducts(this IEndpointRouteBuilder app)
+        /// <summary>
+        /// Get my products - SELLER xem sản phẩm của mình
+        /// </summary>
+        public static void MapGetMyProducts(this IEndpointRouteBuilder app)
         {
-            app.MapGet("/api/products", async ([AsParameters] GetProductsQuery query, MongoContext db) =>
+            app.MapGet("/api/products/my-products", async (HttpContext ctx, [AsParameters] GetProductsQuery query, MongoContext db) =>
             {
+                var sellerId = ctx.GetUserId();
+
                 var filterBuilder = Builders<Product>.Filter;
                 var filter = filterBuilder.And(
-                     filterBuilder.Eq(p => p.IsDeleted, false),
-                     filterBuilder.Eq(p => p.Status, ProductStatus.Approved)
+                    filterBuilder.Eq(p => p.IsDeleted, false),
+                    filterBuilder.Eq(p => p.SellerId, sellerId)
                 );
 
                 // 🔍 Fulltext search
@@ -66,11 +69,12 @@ namespace Services.CatalogService.Features.Products.GetProducts
 
                 return Results.Ok(result);
             })
-            .WithName("GetProducts")
+            .RequireAuthorization("Seller")
+            .WithName("GetMyProducts")
             .WithTags("Products")
-            .WithSummary("Get products with search, filter, sort, pagination")
+            .WithSummary("Get my products with search, filter, sort, pagination")
             .WithDescription("""
-                - Tất cả vai trò đều có thể xem danh sách sản phẩm (chưa xóa isDelete = false và đã được duyệt Approve)
+                - Seller xem danh sách những product của mình
                 - Sử dụng bộ lọc với từ khóa sẽ lọc theo Name và Description của sản phẩm
                 - Sử dụng bộ theo khoảng giá từ giá bao nhiêu đến giá bao nhiêu
                 - Sử dụng bộ lọc Sort với sortField "createdat" để lọc theo ngày tạo sản phẩm và sort "asc"
