@@ -1,55 +1,74 @@
-﻿using BuildingBlocks.Contracts.Events;
+﻿
+
+using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Services.OrderService.Application.Interfaces;
 using Services.OrderService.Domain.Entities;
+using static MassTransit.ValidationResultExtensions;
 
 namespace Services.OrderService.Application.Orders.Commands.CreateOrder
 {
     public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Order>
     {
         private readonly IUnitOfWork _uow;
-        private readonly IPublishEndpoint _publishEndpoint;
-        private readonly IInventoryGrpcClient _inventoryClient;
-        private readonly IPaymentGrpcClient _paymentClient;
+        private readonly IPublishEndpoint _publisher;
+        private readonly IInventoryGrpcClient _inventory;
+        private readonly IPaymentGrpcClient _payment;
+        private readonly ICatalogServiceClient _catalog;
         private readonly ILogger<CreateOrderCommandHandler> _logger;
 
-
-        public CreateOrderCommandHandler(IUnitOfWork uow, IPublishEndpoint publishEndpoint, IInventoryGrpcClient inventoryClient, IPaymentGrpcClient paymentClient, ILogger<CreateOrderCommandHandler> logger)
+        public CreateOrderCommandHandler(
+            IUnitOfWork uow,
+            IPublishEndpoint publisher,
+            IInventoryGrpcClient inventory,
+            IPaymentGrpcClient payment,
+            ICatalogServiceClient catalog,
+            ILogger<CreateOrderCommandHandler> logger)
         {
             _uow = uow;
-            _publishEndpoint = publishEndpoint;
-            _inventoryClient = inventoryClient;
-            _paymentClient = paymentClient;
+            _publisher = publisher;
+            _inventory = inventory;
+            _payment = payment;
+            _catalog = catalog;
             _logger = logger;
         }
 
-        public async Task<Order> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
+        public async Task<Order> Handle(CreateOrderCommand request, CancellationToken ct)
         {
+            var userId = request.UserId;
 
-            //1. Kiểm tra tồn kho qua gRPC (sync)
-            foreach (var item in request.Items)
+            // 1. Lấy dữ liệu sản phẩm từ CatalogService (tránh client fake giá)
+            _logger.LogInformation(" ========= Getting Product {ProductId}... ", request.ProductId);
+            var product = await _catalog.GetProductAsync(request.ProductId, ct);
+            if (product == null)
             {
-                var result = _inventoryClient.CheckStock(item.ProductId, item.Quantity);
-
-                // Có item hết hàng
-                if (!result.InStock)
-                {
-                    _logger.LogWarning("❌ Out of stock: {ProductId}, only {Stock} left",
-                        item.ProductId, result.AvailableStock);
-
-                    throw new InvalidOperationException(
-                        $"Sản phẩm {item.ProductId} chỉ còn {result.AvailableStock} trong kho");
-                }
-
-                _logger.LogInformation("✅ Stock OK for {ProductId}: {Available}", item.ProductId, result.AvailableStock);
+                _logger.LogWarning("❌ Product with Id {ProductId} does not exist", request.ProductId);
+                throw new InvalidOperationException("Product does not exist");
             }
 
-            // 2. Kiểm tra card thanh toán qua gRPC (sync)
+            _logger.LogInformation(" =========✅ Product {ProductId} exist Checking Stock ... ", request.ProductId);
+            // 2. Kiểm tra tồn kho
+            var stock = _inventory.CheckStock(request.ProductId, request.Quantity);
+            if (!stock.InStock)
+            {
+                _logger.LogWarning("❌ Out of stock: {ProductId}, only {Stock} left",
+                        request.ProductId, stock.AvailableStock);
+                throw new InvalidOperationException($"Only {stock.AvailableStock} items remaining");
+            }
+
+            _logger.LogInformation(" =========✅ Product {ProductId} Check Stock OK, Calculating total price", request.ProductId);
+
+            // 3. Tính giá thật
+            var totalPrice = product.Price * request.Quantity;
+
+            _logger.LogInformation(" =========✅ Total Price for user {UserId} is {totalPrice} (Product {ProductId}, Quantity {Quantity}). Checking Card...", userId, totalPrice, request.ProductId, request.Quantity);
+
+            // 4. Kiểm tra card thanh toán qua gRPC (sync)
             // lấy cardToken từ request (client/UI phải gửi cardToken trong CreateOrderCommand)
-            var cardToken = request.CardToken; 
-            var cardCheck = _paymentClient.CheckCard(request.UserId, cardToken, request.TotalPrice);
+            var cardToken = request.CardToken;
+            var cardCheck = _payment.CheckCard(request.UserId, cardToken, totalPrice);
 
             // Kết quả kiểm tra Card
             if (!cardCheck.Valid || cardCheck.Blocked || !cardCheck.SufficientLimit)
@@ -59,43 +78,51 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 throw new InvalidOperationException($"❌ Payment check failed: {reason}");
             }
 
-            // 3. Tạo Order
+            _logger.LogInformation(" =========✅ Checked card with token {CardToken} success, valid card. Creating Order....", request.CardToken);
+
+            // 5. Tạo đơn hàng
             var order = new Order
             {
                 Id = Guid.NewGuid(),
-                UserId = request.UserId,
+                UserId = userId,
                 CreatedAt = DateTime.UtcNow,
                 Status = OrderStatus.Pending,
-                TotalPrice = request.TotalPrice,
-                Items = request.Items.Select(i => new OrderItem
+                TotalPrice = totalPrice,
+                Items = new List<OrderItem>
                 {
-                    Id = Guid.NewGuid(),
-                    ProductId = i.ProductId,
-                    Name = i.Name,
-                    Price = i.Price,
-                    Quantity = i.Quantity
-                }).ToList()
+                    new OrderItem
+                    {
+                        Id = Guid.NewGuid(),
+                        ProductId = request.ProductId,
+                        Name = product.Name,
+                        Price = product.Price,
+                        Quantity = request.Quantity
+                    }
+                }
             };
 
-            // 3,5. Add Order
-            await _uow.Order.AddAsync(order, cancellationToken);
+            await _uow.Order.AddAsync(order, ct);
 
             _logger.LogInformation(" ========= Created Order . Publishing OrderCreated event...");
 
-            // 4. Tạo event OrderCreated 
+            // 6. Publish sự kiện OrderCreatedEvent → Saga xử lý tiếp
             var eventToPublish = new OrderCreatedEvent(
                 order.Id,
-                order.UserId,
-                order.TotalPrice,
+                userId,
+                totalPrice,
                 order.CreatedAt,
                 order.Status.ToString(),
-                order.Items.Select(i => new BasketItemEvent(i.ProductId, i.Name, i.Price, i.Quantity)).ToList()
+                new List<BasketItemEvent>
+                {
+                    new BasketItemEvent(
+                        request.ProductId, product.Name, product.Price, request.Quantity
+                    )
+                }
             );
 
-            // 4,5. Publish → MassTransit sẽ tự lưu vào Outbox + DB transaction
             try
             {
-                await _publishEndpoint.Publish(eventToPublish, cancellationToken);
+                await _publisher.Publish(eventToPublish, ct);
                 _logger.LogInformation("✅ OrderCreatedEvent published successfully");
             }
             catch (Exception ex)
@@ -103,8 +130,7 @@ namespace Services.OrderService.Application.Orders.Commands.CreateOrder
                 _logger.LogError(ex, "❌ Failed to publish OrderCreatedEvent ");
             }
 
-            // 5. SaveChanges → Lưu cả Order + OutboxMessage trong 1 transaction
-            await _uow.SaveChangesAsync(cancellationToken);
+            await _uow.SaveChangesAsync(ct);
 
             _logger.LogInformation("✅ Order {OrderId} created and OrderCreatedEvent published via Outbox", order.Id);
 

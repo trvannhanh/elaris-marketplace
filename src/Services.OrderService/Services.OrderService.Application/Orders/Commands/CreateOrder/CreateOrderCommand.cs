@@ -1,15 +1,14 @@
 ﻿
-using BuildingBlocks.Contracts.Events;
+
 using MediatR;
 using Services.OrderService.Domain.Entities;
 
 namespace Services.OrderService.Application.Orders.Commands.CreateOrder
 {
-    public record CreateOrderCommand(string UserId,
-        List<BasketItemEvent> Items,
-        decimal TotalPrice,
+    public record CreateOrderCommand(
+        string UserId,
+        string ProductId,
+        int Quantity,
         string CardToken
-        ) 
-    : IRequest<Order>;
+    ) : IRequest<Order>;
 }
-

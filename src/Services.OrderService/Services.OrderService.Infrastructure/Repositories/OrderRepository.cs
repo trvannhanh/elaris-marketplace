@@ -41,6 +41,30 @@ namespace Services.OrderService.Infrastructure.Repositories
                 .AsNoTracking();
         }
 
+        public async Task<List<Order>> GetByUserIdAsync(string userId, CancellationToken ct = default)
+        {
+            return await _db.Orders
+                .Include(o => o.Items)
+                .Where(o => o.UserId == userId)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync(ct);
+        }
+
+        public async Task<List<Order>> GetByStatusAsync(OrderStatus status, CancellationToken ct = default)
+        {
+            return await _db.Orders
+                .Include(o => o.Items)
+                .Where(o => o.Status == status)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync(ct);
+        }
+
+        public Task UpdateAsync(Order order, CancellationToken ct = default)
+        {
+            _db.Orders.Update(order);
+            return Task.CompletedTask;
+        }
+
         public async Task<int> CountAsync(IQueryable<Order> query, CancellationToken ct)
             => await query.CountAsync(ct);
 

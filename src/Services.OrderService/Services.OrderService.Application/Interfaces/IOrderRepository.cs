@@ -10,5 +10,9 @@ namespace Services.OrderService.Application.Interfaces
         IQueryable<Order> Query();
         Task<int> CountAsync(IQueryable<Order> query, CancellationToken ct);
         Task<List<Order>> PaginateAsync(IQueryable<Order> query, int page, int pageSize, CancellationToken ct);
+
+        Task<List<Order>> GetByUserIdAsync(string userId, CancellationToken ct = default);
+        Task<List<Order>> GetByStatusAsync(OrderStatus status, CancellationToken ct = default);
+        Task UpdateAsync(Order order, CancellationToken ct = default);
     }
 }

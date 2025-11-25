@@ -4,7 +4,7 @@ using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Services.OrderService.Application.Orders.Commands.CreateOrder;
+using Services.OrderService.Application.Orders.Commands.CreateOrderFromBasket;
 
 namespace Services.OrderService.Infrastructure.Consumers
 {
@@ -27,7 +27,7 @@ namespace Services.OrderService.Infrastructure.Consumers
 
             _logger.LogInformation("==== Checkout received - Sending OrderCreatedCommand for User {UserId}", ev.UserId);
 
-            await _mediator.Send(new CreateOrderCommand(
+            await _mediator.Send(new CreateOrderFromBasketCommand(
                 ev.UserId,
                 ev.Items,
                 total,

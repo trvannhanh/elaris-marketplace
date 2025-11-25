@@ -1,4 +1,4 @@
-﻿using Microsoft.OpenApi.Models;
+﻿
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -13,13 +13,17 @@ using Services.OrderService.Application.Common.Mappings;
 using MapsterMapper;
 using Services.OrderService.API.Middleware;
 using MassTransit;
+using Polly.Extensions.Http;
 using Polly;
 using Services.InventoryService;
 using Grpc.Core;
 using Services.PaymentService;
 using OpenTelemetry.Logs;
-
-
+using Microsoft.Extensions.DependencyInjection;
+using BuildingBlocks.Infrastucture.Authentication;
+using Microsoft.OpenApi;
+using Services.OrderService.Infrastructure.Services;
+using Services.OrderService.Application.Interfaces;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +34,27 @@ var conn = builder.Configuration.GetConnectionString("DefaultConnection")
 // Infra setup
 builder.Services.AddInfrastructure(conn, builder.Configuration);
 
+
+/// ==================== JWT AUTHENTICATION ====================
+builder.Services.AddJwtAuthentication(
+    builder.Configuration,
+    authorityUrl: "http://identityservice:8080",
+    audience: "elaris.api"
+);
+
+
+// ==================== AUTHORIZATION POLICIES ====================
+builder.Services.AddAuthorizationPolicies();
+
+
+// Catalog Service HTTP Client 
+builder.Services.AddHttpClient<ICatalogServiceClient, CatalogServiceClient>(client =>
+{
+    client.BaseAddress = new Uri("http://catalogservice:8080");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
+builder.Services.AddEndpointsApiExplorer();
 
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
@@ -86,6 +111,7 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Order API", Version = "v1" });
     c.AddServer(new OpenApiServer { Url = "/order" });
+    c.EnableAnnotations();
 });
 
 //// Thêm Polly policy (tùy chọn)
