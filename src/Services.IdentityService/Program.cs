@@ -2,13 +2,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Services.IdentityService.Data;
-using Microsoft.OpenApi.Models;
 using OpenTelemetry.Trace;
 using Services.IdentityService.Security;
 using Services.IdentityService;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Logs;
+using Microsoft.OpenApi;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -76,54 +80,217 @@ builder.Services.AddIdentityServer(options =>
 .AddInMemoryClients(IdentityServerConfig.Clients)                      // Cấu hình Clients (elaris_web, elaris_bff)
 .AddSigningCredential(RsaKeyProvider.GetSigningCredentials());         // RSA key để ký JWT tokens
 
-// ==================== BFF AUTHENTICATION CONFIGURATION ====================
-// Cấu hình xác thực cho Backend-For-Frontend (BFF) pattern
+// ==================== AUTHENTICATION CONFIGURATION ====================
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultScheme = "Cookies";          // Dùng cookie làm authentication scheme mặc định
-    options.DefaultChallengeScheme = "oidc";    // Redirect đến OIDC khi cần xác thực
+    // Default scheme cho browser-based requests
+    options.DefaultScheme = "Cookies";
+    options.DefaultChallengeScheme = "oidc";
 })
 .AddCookie("Cookies", opts =>
 {
-    opts.Cookie.Name = "elaris.bff";            // Tên cookie
-    opts.Cookie.SameSite = SameSiteMode.Strict; // Chống CSRF attacks
-    opts.LoginPath = "/account/login";          // Đường dẫn trang login
-    opts.LogoutPath = "/account/logout";        // Đường dẫn logout
+    opts.Cookie.Name = "elaris.bff";
+    opts.Cookie.SameSite = SameSiteMode.Strict;
+    opts.LoginPath = "/account/login";
+    opts.LogoutPath = "/account/logout";
 })
 .AddOpenIdConnect("oidc", opts =>
 {
-    // IdentityServer endpoint (chính service này đóng vai trò cả IdentityServer và BFF)
-    opts.Authority = "http://localhost:5001";
-
-    // Thông tin client đã config trong IdentityServerConfig
+    opts.Authority = builder.Configuration["IdentityServer:Authority"]
+                ?? builder.Configuration["IdentityServer:IssuerUri"]
+                ?? "http://identityservice:8080";
     opts.ClientId = "elaris_bff";
     opts.ClientSecret = "secret";
-
-    // Authorization Code Flow - flow chuẩn OAuth2 cho web app
     opts.ResponseType = "code";
-
-    // PKCE (Proof Key for Code Exchange) - bảo vệ chống code interception
     opts.UsePkce = true;
-
-    // Tắt HTTPS requirement (CHỈ cho dev, production PHẢI bật)
     opts.RequireHttpsMetadata = false;
-
-    // Các scope mà BFF yêu cầu
-    opts.Scope.Add("openid");         // Bắt buộc
-    opts.Scope.Add("profile");        // Thông tin profile
-    opts.Scope.Add("email");          // Email
-    opts.Scope.Add("elaris.api");     // Truy cập API
-    opts.Scope.Add("offline_access"); // Refresh token
-
-    // Lưu tokens vào cookie để dùng sau
+    opts.Scope.Add("openid");
+    opts.Scope.Add("profile");
+    opts.Scope.Add("email");
+    opts.Scope.Add("elaris.api");
+    opts.Scope.Add("offline_access");
     opts.SaveTokens = true;
-
-    // Gọi UserInfo endpoint để lấy thêm claims
     opts.GetClaimsFromUserInfoEndpoint = true;
+    opts.TokenValidationParameters.NameClaimType = "name";
+    opts.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+})
+// ===== THÊM JWT BEARER AUTHENTICATION =====
+.AddJwtBearer("Bearer", options =>
+{
+    // Authority là chính IdentityService này
+    options.Authority = builder.Configuration["IdentityServer:IssuerUri"]
+                        ?? "http://identityservice:8080";
 
-    // Mapping claims từ token vào ClaimsPrincipal
-    opts.TokenValidationParameters.NameClaimType = "name";  // Claim "name" sẽ là User.Identity.Name
-    opts.TokenValidationParameters.RoleClaimType = "role";  // Claim "role" sẽ dùng cho roles
+    options.RequireHttpsMetadata = false;
+    options.Audience = "elaris.api";
+
+    // ===== Pre-fetch JWKS với retry =====
+    Console.WriteLine("[IdentityService] Pre-fetching JWKS for Bearer authentication...");
+
+    var oidcConfig = FetchOidcConfigurationWithRetry(
+        "http://identityservice:8080",
+        maxRetries: 5,
+        retryDelay: TimeSpan.FromSeconds(2)
+    );
+
+    if (oidcConfig != null)
+    {
+        options.Configuration = oidcConfig;
+        Console.WriteLine($"[IdentityService] ✅ JWKS fetched successfully with {oidcConfig.SigningKeys.Count} keys");
+    }
+    else
+    {
+        Console.WriteLine("[IdentityService] ⚠️ Failed to pre-fetch JWKS, will use lazy loading");
+    }
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuers = new[] { "http://identityservice:8080" },
+        ValidateAudience = true,
+        ValidAudience = "elaris.api",
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        NameClaimType = "name",
+        RoleClaimType = ClaimTypes.Role,
+        ClockSkew = TimeSpan.FromMinutes(5)
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"[IdentityService] ❌ JWT Bearer auth failed: {context.Exception.Message}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var userName = context.Principal?.FindFirst("name")?.Value;
+            var userId = context.Principal?.FindFirst("sub")?.Value;
+            Console.WriteLine($"[IdentityService] ✅ JWT Bearer validated for: {userName} ({userId})");
+            return Task.CompletedTask;
+        }
+    };
+});
+
+// ===== Helper function để fetch JWKS =====
+static OpenIdConnectConfiguration? FetchOidcConfigurationWithRetry(
+    string authorityUrl,
+    int maxRetries = 10,
+    TimeSpan? retryDelay = null)
+{
+    var delay = retryDelay ?? TimeSpan.FromSeconds(3);
+
+    for (int i = 0; i < maxRetries; i++)
+    {
+        try
+        {
+            Console.WriteLine($"[IdentityService] Fetching JWKS (attempt {i + 1}/{maxRetries})...");
+
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+
+            var jwksUrl = $"{authorityUrl}/.well-known/openid-configuration/jwks";
+            var jwksJson = httpClient.GetStringAsync(jwksUrl).Result;
+            var jwks = new Microsoft.IdentityModel.Tokens.JsonWebKeySet(jwksJson);
+
+            var config = new Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration
+            {
+                Issuer = authorityUrl,
+                JwksUri = jwksUrl
+            };
+
+            foreach (var key in jwks.Keys)
+            {
+                config.SigningKeys.Add(key);
+            }
+
+            return config;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[IdentityService] ❌ Attempt {i + 1} failed: {ex.Message}");
+
+            if (i < maxRetries - 1)
+            {
+                Thread.Sleep(delay);
+            }
+        }
+    }
+
+    return null;
+}
+
+builder.Services.AddAuthorization(options =>
+{
+    // ==================== BUYER POLICIES ====================
+    options.AddPolicy("Buyer", policy =>
+    {
+        policy.AuthenticationSchemes.Clear(); // ← xóa mặc định
+        policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+
+
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("buyer");
+        policy.RequireClaim("scope", "elaris.api");
+    });
+
+    // ==================== SELLER POLICIES ====================
+    options.AddPolicy("Seller", policy =>
+    {
+        policy.AuthenticationSchemes.Clear(); // ← xóa mặc định
+        policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+
+
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("seller");
+        policy.RequireClaim("scope", "elaris.api");
+    });
+
+    // ==================== ADMIN POLICIES ====================
+    options.AddPolicy("Admin", policy =>
+    {
+        policy.AuthenticationSchemes.Clear(); // ← xóa mặc định
+        policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("admin");
+        policy.RequireClaim("scope", "elaris.api");
+    });
+
+    // ==================== COMBINED POLICIES ====================
+
+    // Buyer hoặc Seller (đăng nhập rồi)
+    options.AddPolicy("BuyerOrSeller", policy =>
+    {
+        policy.AuthenticationSchemes.Clear(); // ← xóa mặc định
+        policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("buyer", "seller");
+        policy.RequireClaim("scope", "elaris.api");
+    });
+
+    // Seller hoặc Admin
+    options.AddPolicy("SellerOrAdmin", policy =>
+    {
+        policy.AuthenticationSchemes.Clear(); // ← xóa mặc định
+        policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("seller", "admin");
+        policy.RequireClaim("scope", "elaris.api");
+    });
+
+    // Bất kỳ ai đăng nhập (3 roles)
+    options.AddPolicy("Authenticated", policy =>
+    {
+        policy.AuthenticationSchemes.Clear(); // ← xóa mặc định
+        policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("buyer", "seller", "admin");
+        policy.RequireClaim("scope", "elaris.api");
+    });
 });
 
 // ==================== SWAGGER CONFIGURATION ====================
@@ -132,61 +299,16 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Identity API", Version = "v1" });
 
-    // Thêm JWT Bearer authentication vào Swagger UI
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
-    });
-
-    // Áp dụng Bearer token cho tất cả endpoints trong Swagger
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] { }
-        }
-    });
-
     // Cấu hình base path khi service chạy sau API Gateway
     // Gateway sẽ route /identity/* tới service này
     c.AddServer(new OpenApiServer
     {
         Url = "/identity" // Base path khi truy cập qua gateway
     });
+
+    c.EnableAnnotations();
 });
 
-// ==================== AUTHORIZATION POLICIES ====================
-// Định nghĩa các policy phân quyền
-builder.Services.AddAuthorization(options =>
-{
-    // Policy cho Admin: phải đăng nhập + có role "admin" + có scope "elaris.api"
-    options.AddPolicy("AdminOnly", policy =>
-    {
-        policy.RequireAuthenticatedUser();           // Bắt buộc đăng nhập
-        policy.RequireRole("admin");                 // Role phải là "admin"
-        policy.RequireClaim("scope", "elaris.api");  // Access token phải có scope "elaris.api"
-    });
-
-    // Policy cho User: phải đăng nhập + có role "user" + có scope "elaris.api"
-    options.AddPolicy("UserOnly", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.RequireRole("user");
-        policy.RequireClaim("scope", "elaris.api");
-    });
-});
 
 // ==================== OPENTELEMETRY CONFIGURATION ====================
 // Cấu hình OpenTelemetry cho observability (traces, metrics, logs)
@@ -223,7 +345,7 @@ builder.Services.AddCors(opt =>
     opt.AddPolicy("AllowAll", b =>
         b.AllowAnyOrigin()      // Cho phép mọi origin (CHỈ dùng dev, production cần restrict)
          .AllowAnyHeader()      // Cho phép mọi header
-         .AllowAnyMethod());    // Cho phép mọi HTTP method
+         .AllowAnyMethod());     // Cho phép mọi HTTP method
 });
 
 // ==================== BASIC SERVICES ====================
@@ -277,7 +399,7 @@ app.MapControllers();       // Map các controller endpoints
 
 // Redirect root path tới OpenID configuration
 // Giúp dev/client dễ dàng xem cấu hình OIDC
-app.MapGet("/", () => Results.Redirect("/.well-known/openid-configuration"));
+//app.MapGet("/", () => Results.Redirect("/.well-known/openid-configuration"));
 
 // Health check endpoint cho monitoring
 app.MapHealthChecks("/health");
