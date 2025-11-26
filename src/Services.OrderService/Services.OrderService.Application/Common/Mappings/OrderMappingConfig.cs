@@ -1,5 +1,6 @@
-﻿using BuildingBlocks.Contracts.DTOs;
+﻿
 using Mapster;
+using Services.OrderService.Application.Orders.DTOs;
 using Services.OrderService.Domain.Entities;
 
 namespace Services.OrderService.Application.Common.Mappings

@@ -1,28 +1,89 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
+﻿// Services.IdentityService/Data/SeedData.cs
+using Microsoft.AspNetCore.Identity;
+using Services.IdentityService.Data;
 
 public static class SeedData
 {
     public static async Task EnsureSeedDataAsync(IServiceProvider services)
     {
-        using var scope = services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Services.IdentityService.Data.AppUser>>();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var userManager = services.GetRequiredService<UserManager<AppUser>>();
 
-        var adminRole = "admin";
-        var userRole = "user";
-        if (!await roleManager.RoleExistsAsync(adminRole))
-            await roleManager.CreateAsync(new IdentityRole(adminRole));
-        if (!await roleManager.RoleExistsAsync(userRole))
-            await roleManager.CreateAsync(new IdentityRole(userRole));
+        // ==================== SEED 3 ROLES ====================
+        var roles = new[] { "buyer", "seller", "admin" };
 
-        var adminEmail = "admin@elaris.local";
-        var admin = await userManager.FindByEmailAsync(adminEmail);
-        if (admin == null)
+        foreach (var role in roles)
         {
-            admin = new Services.IdentityService.Data.AppUser { UserName = "admin", Email = adminEmail, EmailConfirmed = true };
-            await userManager.CreateAsync(admin, "P@ssw0rd!"); // dev only; change later
-            await userManager.AddToRoleAsync(admin, adminRole);
+            if (!await roleManager.RoleExistsAsync(role))
+            {
+                await roleManager.CreateAsync(new IdentityRole(role));
+                Console.WriteLine($"[SeedData] ✅ Created role: {role}");
+            }
+        }
+
+        // ==================== SEED TEST USERS ====================
+
+        // Admin
+        await CreateUserIfNotExists(
+            userManager,
+            username: "admin1",
+            email: "admin@elaris.local",
+            password: "Admin@123",
+            roles: new[] { "admin" }
+        );
+
+        // Buyer
+        await CreateUserIfNotExists(
+            userManager,
+            username: "buyer1",
+            email: "buyer@elaris.local",
+            password: "Buyer@123",
+            roles: new[] { "buyer" }
+        );
+
+        // Seller
+        await CreateUserIfNotExists(
+            userManager,
+            username: "seller1",
+            email: "seller@elaris.local",
+            password: "Seller@123",
+            roles: new[] { "seller" }
+        );
+
+        Console.WriteLine("[SeedData] ✅ Seed data completed");
+    }
+
+    private static async Task CreateUserIfNotExists(
+        UserManager<AppUser> userManager,
+        string username,
+        string email,
+        string password,
+        string[] roles)
+    {
+        var existingUser = await userManager.FindByEmailAsync(email);
+        if (existingUser == null)
+        {
+            var user = new AppUser
+            {
+                UserName = username,
+                Email = email,
+                EmailConfirmed = true
+            };
+
+            var result = await userManager.CreateAsync(user, password);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRolesAsync(user, roles);
+                Console.WriteLine($"[SeedData] ✅ Created user: {username} with roles: {string.Join(", ", roles)}");
+            }
+            else
+            {
+                Console.WriteLine($"[SeedData] ❌ Failed to create user: {username}");
+                foreach (var error in result.Errors)
+                {
+                    Console.WriteLine($"  - {error.Description}");
+                }
+            }
         }
     }
 }

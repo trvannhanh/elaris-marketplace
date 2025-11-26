@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Services.OrderService.Application.Orders.Commands.CreateOrder
+namespace Services.OrderService.Application.Orders.Commands.CreateOrderFromBasket
 {
-    public class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
+    public class CreateOrderCommandValidator : AbstractValidator<CreateOrderFromBasketCommand>
     {
         public CreateOrderCommandValidator()
         {
