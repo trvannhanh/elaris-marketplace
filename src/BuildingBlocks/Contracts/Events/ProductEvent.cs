@@ -2,8 +2,11 @@
 {
     public record ProductCreatedEvent(
         string ProductId,
-        string Name,
-        decimal Price,
+        string SellerId,
+        //string Name,
+        int Quantity,
+        int LowStockThreshold,
+        //decimal Price,
         DateTime CreatedAt
     );
 

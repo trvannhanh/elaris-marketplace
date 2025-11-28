@@ -208,6 +208,7 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/inventory/swagger.json", "Inventory Service");
     c.SwaggerEndpoint("/swagger/payment/swagger.json", "Payment Service");
 
+
     c.RoutePrefix = "swagger";
     c.DocumentTitle = "Elaris Marketplace - All APIs";
 

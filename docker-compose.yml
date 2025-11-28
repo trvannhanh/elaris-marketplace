@@ -111,6 +111,7 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=elaris_db;Username=elaris;Password=elaris_pwd
       - IdentityServer__IssuerUri=http://identityservice:8080
+      - IdentityServer__Authority=http://identityservice:8080
     ports:
       - "5001:8080"
     depends_on:
@@ -325,6 +326,58 @@ services:
     networks:
       - elaris_net
 
+  # ========================
+  # MinIO
+  # ========================
+  minio:
+    image: minio/minio:latest
+    container_name: elaris-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:                  # ← THÊM HEALTHCHECK
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - elaris_net
+
+  # Tạo bucket tự động khi khởi động (rất tiện)
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - elaris_net
+    entrypoint: >
+      /bin/sh -c "
+      echo 'MinIO is healthy! Creating buckets & setting policy...';
+      mc alias set myminio http://minio:9000 minioadmin minioadmin123;
+      
+      mc mb myminio/products --ignore-existing;
+      mc mb myminio/previews --ignore-existing;
+      
+      # ĐÚNG 2025: cho phép download công khai
+      mc anonymous set download myminio/products;
+      mc anonymous set download myminio/previews;
+      
+      # Hoặc dùng policy (cách chuẩn nhất)
+      # mc policy set download myminio/products
+      # mc policy set download myminio/previews
+      
+      echo 'Buckets ready + PUBLIC DOWNLOAD enabled!';
+      "
+
 # ========================
 # VOLUMES
 # ========================
@@ -336,3 +389,4 @@ volumes:
   grafana-data:
   ordersqldata:
   inventorysqldata:
+  minio-data:

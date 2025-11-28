@@ -67,8 +67,11 @@ namespace ApiGateway.Middlewares
                         {
                             foreach (var kv in doc.Components.Schemas)
                             {
+                                var oldName = kv.Key;
                                 var newKey = $"{service.Key}_{kv.Key}";
                                 openApiDoc.Components.Schemas[newKey] = kv.Value;
+
+                                FixAllReferences(openApiDoc, service.Key, oldName, newKey);
 
                                 // Cập nhật các $ref để không bị conflict
                                 foreach (var p in openApiDoc.Paths.Values)
@@ -147,6 +150,81 @@ namespace ApiGateway.Middlewares
             }
 
             await _next(context);
+        }
+
+        // Thêm đoạn này vào cuối phần merge schemas (trước khi viết JSON)
+        private static void FixAllReferences(OpenApiDocument mainDoc, string servicePrefix, string oldSchemaName, string newSchemaName)
+        {
+            var oldRef = $"#/components/schemas/{oldSchemaName}";
+            var newRef = $"#/components/schemas/{newSchemaName}";
+
+            // Duyệt tất cả paths → sửa $ref trong request/response body
+            foreach (var path in mainDoc.Paths.Values)
+            {
+                foreach (var operation in path.Operations.Values)
+                {
+                    // RequestBody
+                    if (operation.RequestBody?.Content != null)
+                    {
+                        foreach (var media in operation.RequestBody.Content.Values)
+                        {
+                            ReplaceRef(media.Schema, oldRef, newRef);
+                        }
+                    }
+
+                    // Responses
+                    if (operation.Responses != null)
+                    {
+                        foreach (var response in operation.Responses.Values)
+                        {
+                            if (response.Content != null)
+                            {
+                                foreach (var media in response.Content.Values)
+                                {
+                                    ReplaceRef(media.Schema, oldRef, newRef);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void ReplaceRef(OpenApiSchema schema, string oldRef, string newRef)
+        {
+            if (schema == null) return;
+
+            // Kiểm tra nếu schema đang trỏ đến ref cũ
+            if (schema.Reference != null && schema.Reference.ReferenceV3 == oldRef)
+            {
+                // TẠO MỚI TOÀN BỘ REFERENCE – ĐÂY LÀ CÁCH DUY NHẤT HOẠT ĐỘNG VỚI Microsoft.OpenApi >= 1.6
+                schema.Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.Schema,
+                    Id = newRef.Split('/').Last(),           // ví dụ: "catalog_ProductStatus"
+                                                             // Không cần gán ReferenceV3 – nó sẽ tự sinh từ Id + Type
+                };
+            }
+
+            // Đệ quy cho tất cả schema con
+            if (schema.Properties != null)
+                foreach (var prop in schema.Properties.Values)
+                    ReplaceRef(prop, oldRef, newRef);
+
+            if (schema.Items != null)
+                ReplaceRef(schema.Items, oldRef, newRef);
+
+            if (schema.AllOf != null)
+                foreach (var s in schema.AllOf)
+                    ReplaceRef(s, oldRef, newRef);
+
+            if (schema.OneOf != null)
+                foreach (var s in schema.OneOf)
+                    ReplaceRef(s, oldRef, newRef);
+
+            if (schema.AnyOf != null)
+                foreach (var s in schema.AnyOf)
+                    ReplaceRef(s, oldRef, newRef);
         }
     }
 }
