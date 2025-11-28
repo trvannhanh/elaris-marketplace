@@ -1,6 +1,5 @@
 ﻿using Grpc.Core;
 using MediatR;
-using Services.PaymentService.Application.Payments.Commands.PreAuthorize;
 using static MassTransit.ValidationResultExtensions;
 using static Services.PaymentService.PaymentService;
 

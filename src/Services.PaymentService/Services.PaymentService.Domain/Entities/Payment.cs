@@ -2,23 +2,34 @@
 {
     public class Payment
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid Id { get; set; }
         public Guid OrderId { get; set; }
+        public string UserId { get; set; } = string.Empty;
         public decimal Amount { get; set; }
-        public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? CompletedAt { get; set; }
-        public string? RefundReason { get; set; }
+        public PaymentStatus Status { get; set; }
+        public string? TransactionId { get; set; }
+        public string? FailureReason { get; set; }
+        public string? CancellationReason { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public DateTime? ProcessedAt { get; set; }
+        public DateTime? CapturedAt { get; set; }
+        public string? CapturedBy { get; set; }
         public DateTime? RefundedAt { get; set; }
-        public string? TransactionId { get; set; } // từ cổng thanh toán
+        public string? RefundedBy { get; set; }
+        public decimal? RefundedAmount { get; set; }
+        public string? RefundReason { get; set; }
+        public DateTime? CancelledAt { get; set; }
     }
 
     public enum PaymentStatus
     {
         Pending,
-        Authorized,
-        Captured,
+        Processing,
+        Completed,
         Failed,
-        Refunded
+        Cancelled,
+        Refunded,
+        PartiallyRefunded
     }
 }

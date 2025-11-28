@@ -1,6 +1,7 @@
 ﻿using BuildingBlocks.Contracts.Commands;
 using BuildingBlocks.Contracts.Events;
 using MassTransit;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Services.PaymentService.Application.Interfaces;
 using Services.PaymentService.Domain.Entities;
@@ -10,11 +11,16 @@ namespace Services.PaymentService.Infrastructure.Consumers
 {
     public class RefundPaymentConsumer : IConsumer<RefundPaymentCommand>
     {
+        private readonly IMediator _mediator;
         private readonly IUnitOfWork _uow;
         private readonly ILogger<RefundPaymentConsumer> _logger;
 
-        public RefundPaymentConsumer(IUnitOfWork uow, ILogger<RefundPaymentConsumer> logger)
+        public RefundPaymentConsumer(
+            IMediator mediator,
+            IUnitOfWork uow,
+            ILogger<RefundPaymentConsumer> logger)
         {
+            _mediator = mediator;
             _uow = uow;
             _logger = logger;
         }
@@ -23,56 +29,95 @@ namespace Services.PaymentService.Infrastructure.Consumers
         {
             var cmd = context.Message;
 
-            var payment = await _uow.Payment.GetByOrderIdAsync(cmd.OrderId, context.CancellationToken);
-            if (payment == null)
-            {
-                _logger.LogWarning("❌ Payment not found for refund: Order {OrderId}", cmd.OrderId);
-                return;
-            }
-
-            if (payment.Status != PaymentStatus.Authorized)
-            {
-                _logger.LogWarning("❌ Cannot refund non-authorzied payment: {Status}", payment.Status);
-                return;
-            }
+            _logger.LogInformation(
+                "[RefundPayment] Starting refund for Order {OrderId}, Reason: {Reason}",
+                cmd.OrderId, cmd.Reason);
 
             try
             {
-                // Gọi cổng thanh toán thật ở đây (Stripe, VNPay, ...)
-                // await _paymentGateway.RefundAsync(payment.TransactionId);
+                // 1. Find payment by OrderId
+                var payment = await _uow.Payment.GetByOrderIdAsync(
+                    cmd.OrderId,
+                    context.CancellationToken);
 
-                // Giả lập refund thành công
-                await Task.Delay(800, context.CancellationToken);
+                if (payment == null)
+                {
+                    _logger.LogWarning(
+                        "❌ Payment not found for refund: Order {OrderId}", cmd.OrderId);
 
-                payment.Status = PaymentStatus.Refunded;
-                payment.RefundedAt = DateTime.UtcNow;
-                payment.RefundReason = cmd.Reason;
+                    await context.Publish(new PaymentRefundFailedEvent(
+                        cmd.OrderId,
+                        0,
+                        "Payment record not found",
+                        DateTime.UtcNow
+                    ));
+                    return;
+                }
 
-                await _uow.SaveChangesAsync(context.CancellationToken);
+                // 2. Validate payment status
+                if (payment.Status != PaymentStatus.Completed)
+                {
+                    _logger.LogWarning(
+                        "❌ Cannot refund non-completed payment: {Status}", payment.Status);
 
-                
+                    await context.Publish(new PaymentRefundFailedEvent(
+                        cmd.OrderId,
+                        payment.Amount,
+                        $"Invalid payment state: {payment.Status}. Expected: Completed",
+                        DateTime.UtcNow
+                    ));
+                    return;
+                }
+
+                // 3. Refund using CQRS Command
+                var refundCommand = new Application.Payments.Commands.RefundPayment.RefundPaymentCommand(
+                    PaymentId: payment.Id,
+                    Amount: cmd.Amount, // Full refund if amount not specified
+                    Reason: cmd.Reason,
+                    RefundedBy: "system"
+                );
+
+                var refundedPayment = await _mediator.Send(
+                    refundCommand,
+                    context.CancellationToken);
+
+                // 4. Publish success event
                 await context.Publish(new PaymentRefundedEvent(
                     cmd.OrderId,
-                    payment.Amount,
+                    refundedPayment.RefundedAmount ?? 0,
                     cmd.Reason,
-                    payment.RefundedAt.Value
+                    refundedPayment.RefundedAt ?? DateTime.UtcNow
                 ));
 
                 _logger.LogInformation(
-                    "✅ Payment refunded for Order {OrderId}. Amount: {Amount}. Reason: {Reason}",
-                    cmd.OrderId, payment.Amount, cmd.Reason
-                );
+                    "✅ Payment refunded for Order {OrderId}. Amount: {Amount}, Status: {Status}",
+                    cmd.OrderId, refundedPayment.RefundedAmount, refundedPayment.Status);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex,
+                    "❌ Refund validation failed for Order {OrderId}", cmd.OrderId);
+
+                await context.Publish(new PaymentRefundFailedEvent(
+                    cmd.OrderId,
+                    cmd.Amount,
+                    ex.Message,
+                    DateTime.UtcNow
+                ));
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex,
+                    "❌ Refund failed for Order {OrderId}", cmd.OrderId);
+
                 await context.Publish(new PaymentRefundFailedEvent(
                     cmd.OrderId,
-                    payment.Amount,
+                    cmd.Amount,
                     ex.Message,
                     DateTime.UtcNow
                 ));
 
-                _logger.LogError(ex, "❌ Refund failed for Order {OrderId}", cmd.OrderId);
+                throw;
             }
         }
     }
