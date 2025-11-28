@@ -3,21 +3,26 @@ using BuildingBlocks.Contracts.Events;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Services.InventoryService.Application.Interfaces;
+using Services.InventoryService.Application.Inventory.Commands.ConfirmStockDeduction;
+using System.Threading;
 
 namespace Services.InventoryService.Infrastructure.Consumers
 {
     public class ConfirmInventoryConsumer : IConsumer<ConfirmInventoryReservationCommand>
     {
         private readonly IUnitOfWork _uow;
+        private readonly IInventoryService _service;
         private readonly IPublishEndpoint _publisher;
         private readonly ILogger<ConfirmInventoryConsumer> _logger;
 
         public ConfirmInventoryConsumer(
             IUnitOfWork uow,
+            IInventoryService service,
             IPublishEndpoint publisher,
             ILogger<ConfirmInventoryConsumer> logger)
         {
             _uow = uow;
+            _service = service;
             _publisher = publisher;
             _logger = logger;
         }
@@ -30,7 +35,7 @@ namespace Services.InventoryService.Infrastructure.Consumers
             {
                 foreach (var item in cmd.Items)
                 {
-                    await _uow.Inventory.ConfirmReservationAsync(item.ProductId, item.Quantity, context.CancellationToken);
+                    await _service.ConfirmReservationAsync(cmd.OrderId, item.ProductId, item.Quantity, context.CancellationToken);
                     _logger.LogInformation("====== ConfirmReservation stock: {ProductId} x {Quantity}", item.ProductId, item.Quantity);
                 }
 

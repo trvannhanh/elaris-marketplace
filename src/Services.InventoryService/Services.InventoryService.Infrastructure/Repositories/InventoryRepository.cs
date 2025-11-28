@@ -1,90 +1,114 @@
 ﻿
-using BuildingBlocks.Contracts.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Services.InventoryService.Application.Interfaces;
 using Services.InventoryService.Domain.Entities;
 using Services.InventoryService.Infrastructure.Persistence;
-using System.Net.Http.Json;
 
 namespace Services.InventoryService.Infrastructure.Repositories
 {
     public class InventoryRepository : IInventoryRepository
     {
-        private readonly InventoryDbContext _db;
-        private readonly HttpClient _http;
+        private readonly InventoryDbContext _context;
 
-        public InventoryRepository(InventoryDbContext db, HttpClient http)
+        public InventoryRepository(
+            InventoryDbContext context)
         {
-            _db = db;
-            _http = http;
+            _context = context;
         }
 
-        public async Task<InventoryItem?> GetByProductIdAsync(string productId, CancellationToken cancellationToken = default)
+        public async Task<InventoryItem?> GetByProductIdAsync(string productId, CancellationToken ct)
         {
-            return await _db.InventoryItems
-                .FirstOrDefaultAsync(i => i.ProductId == productId, cancellationToken);
+            return await _context.InventoryItems
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.ProductId == productId, ct);
         }
 
-        public async Task<bool> HasStockAsync(string productId, int quantity, CancellationToken cancellationToken = default)
+        public async Task<List<InventoryItem>> GetAllAsync(CancellationToken ct)
         {
-            var inventory = await GetByProductIdAsync(productId, cancellationToken);
-            return inventory != null && inventory.AvailableStock >= quantity;
+            return await _context.InventoryItems
+                .AsNoTracking()
+                .ToListAsync(ct);
         }
 
-        public async Task<OrderDto?> FetchOrderDetails(Guid orderId, CancellationToken ct = default)
+        public IQueryable<InventoryItem> GetQueryable()
         {
-            return await _http.GetFromJsonAsync<OrderDto>(
-                $"http://orderservice:8080/api/orders/{orderId}", ct);
+            return _context.InventoryItems.AsNoTracking();
         }
 
-        public async Task DecreaseStockAsync(string productId, int quantity, CancellationToken cancellationToken = default)
+        public IQueryable<InventoryHistory> GetHistoryQueryable()
         {
-            var inventory = await GetByProductIdAsync(productId, cancellationToken);
-
-            if (inventory == null)
-                throw new InvalidOperationException("Inventory record not found");
-
-            if (inventory.AvailableStock < quantity)
-                throw new InvalidOperationException("Not enough stock to decrease");
-
-            inventory.AvailableStock -= quantity;
-            _db.InventoryItems.Update(inventory);
+            return _context.InventoryHistories.AsNoTracking();
         }
 
-        public async Task AddAsync(InventoryItem inventory, CancellationToken cancellationToken = default)
+        public async Task AddAsync(InventoryItem item, CancellationToken ct)
         {
-            await _db.InventoryItems.AddAsync(inventory, cancellationToken);
+            await _context.InventoryItems.AddAsync(item, ct);
         }
 
-        public async Task<bool> TryReserveStockAsync(string productId, int quantity, CancellationToken ct)
+        public Task UpdateAsync(InventoryItem item, CancellationToken ct)
         {
-            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
-            if (item == null || item.EffectiveStock < quantity)
-                return false;
 
-            item.ReservedQuantity += quantity;
-            _db.InventoryItems.Update(item);
-            return true;
+            _context.InventoryItems.Update(item);
+
+            return Task.CompletedTask;
         }
 
-        public async Task<bool> ReleaseReservationAsync(string productId, int quantity, CancellationToken ct)
+        public async Task AddHistoryAsync(InventoryHistory history, CancellationToken ct)
         {
-            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
-            if (item == null) return false;
-
-            item.ReservedQuantity = Math.Max(0, item.ReservedQuantity - quantity);
-            _db.InventoryItems.Update(item);
-            return true;
+            await _context.InventoryHistories.AddAsync(history, ct);
         }
 
-        public async Task ConfirmReservationAsync(string productId, int quantity, CancellationToken ct)
+        public async Task AddReservationAsync(StockReservation reservation, CancellationToken ct)
         {
-            var item = await _db.InventoryItems.FirstOrDefaultAsync(x => x.ProductId == productId, ct);
-            if (item == null) return;
+            await _context.StockReservations.AddAsync(reservation, ct);
+        }
 
-            item.ReservedQuantity -= quantity;
-            item.AvailableStock -= quantity;
-            _db.InventoryItems.Update(item);
+        public async Task UpdateReservationStatusAsync(
+            Guid orderId,
+            ReservationStatus status,
+            CancellationToken ct)
+        {
+            var reservation = await _context.StockReservations
+                .FirstOrDefaultAsync(r => r.OrderId == orderId, ct);
+
+            if (reservation != null)
+            {
+                reservation.Status = status;
+
+                if (status == ReservationStatus.Released || status == ReservationStatus.Confirmed)
+                {
+                    reservation.ReleasedAt = DateTime.UtcNow;
+                }
+
+            }
+        }
+
+        public async Task<StockReservation?> GetReservationByOrderIdAsync(
+            Guid orderId,
+            CancellationToken ct)
+        {
+            return await _context.StockReservations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.OrderId == orderId, ct);
+        }
+
+        public async Task<List<StockReservation>> GetActiveReservationsAsync(
+            string productId,
+            CancellationToken ct)
+        {
+            return await _context.StockReservations
+                .AsNoTracking()
+                .Where(r => r.ProductId == productId && r.Status == ReservationStatus.Active)
+                .ToListAsync(ct);
+        }
+
+        public async Task<List<StockReservation>> GetExpiredReservationsAsync(
+            DateTime expirationTime,
+            CancellationToken ct)
+        {
+            return await _context.StockReservations
+                .Where(r => r.Status == ReservationStatus.Active && r.ReservedAt < expirationTime)
+                .ToListAsync(ct);
         }
     }
 }

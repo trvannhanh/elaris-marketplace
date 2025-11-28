@@ -63,13 +63,14 @@ namespace Services.InventoryService.Infrastructure.BackgroundServices
                     {
                         // Tạo scope mới để resolve repository
                         using var scope = _scopeFactory.CreateScope();
-                        var repo = scope.ServiceProvider.GetRequiredService<IInventoryRepository>();
+                        var service = scope.ServiceProvider.GetRequiredService<IInventoryService>();
+                        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
                         foreach (var (itemId, quantity) in expired)
                         {
                             try
                             {
-                                await repo.ReleaseReservationAsync(itemId, quantity, stoppingToken);
+                                await service.ReleaseStockAsync(orderId, itemId, quantity, stoppingToken);
                                 _logger.LogInformation("Auto-released: Order {OrderId} - {ProductId} x{Quantity}", orderId, itemId, quantity);
                             }
                             catch (Exception ex)
@@ -77,6 +78,8 @@ namespace Services.InventoryService.Infrastructure.BackgroundServices
                                 _logger.LogError(ex, "Failed to auto-release reservation for Order {OrderId}", orderId);
                             }
                         }
+
+                        await unitOfWork.SaveChangesAsync(stoppingToken);
                     }
                 }
 

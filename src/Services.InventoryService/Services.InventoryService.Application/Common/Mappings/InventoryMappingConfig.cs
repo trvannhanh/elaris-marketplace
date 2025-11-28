@@ -8,7 +8,7 @@ namespace Services.InventoryService.Application.Common.Mappings
     {
         public void Register(TypeAdapterConfig config)
         {
-            config.NewConfig<InventoryItem, InventoryResponse>();
+            config.NewConfig<InventoryItem, InventoryItemDto>();
         }
     }
 }

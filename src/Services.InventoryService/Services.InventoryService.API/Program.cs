@@ -1,5 +1,4 @@
 ﻿
-using Microsoft.OpenApi.Models;
 using Services.InventoryService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Services.InventoryService.Infrastructure.Extensions;
@@ -13,6 +12,11 @@ using Services.InventoryService.Application.Interfaces;
 using Services.InventoryService.Infrastructure.Repositories;
 using Services.InventoryService.API.Grpc;
 using OpenTelemetry.Logs;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using BuildingBlocks.Infrastucture.Authentication;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,8 +27,17 @@ var conn = builder.Configuration.GetConnectionString("DefaultConnection")
 // Infra setup
 builder.Services.AddInfrastructure(conn);
 
+// ==================== JWT AUTHENTICATION ====================
+builder.Services.AddJwtAuthentication(
+    builder.Configuration,
+    authorityUrl: "http://identityservice:8080",
+    audience: "elaris.api"
+);
+
 // Add Controllers
 builder.Services.AddControllers();
+
+builder.Services.AddAuthorizationPolicies();
 
 // Add MediatR
 builder.Services.AddMediatR(cfg =>
@@ -79,6 +92,8 @@ builder.Services.AddSwaggerGen(c =>
 
     // nếu deploy dưới subpath như /inventory
     c.AddServer(new OpenApiServer { Url = "/inventory" });
+
+    c.EnableAnnotations();
 });
 
 // MassTransit wait until started
@@ -101,6 +116,7 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(8080, o => o.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1);
 });
 
+
 var app = builder.Build();
 
 // Migrate DB tự động khi start container
@@ -113,14 +129,14 @@ using (var scope = app.Services.CreateScope())
 //var logger = app.Services.GetRequiredService<ILogger<Program>>();
 //app.AddGlobalExceptionHandler(logger);
 
+
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.MapControllers();
 
 app.MapGrpcService<InventoryGrpcService>();
-
-app.MapGet("/", () => "Inventory gRPC Service is running...");
 
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
