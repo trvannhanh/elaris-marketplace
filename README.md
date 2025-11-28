@@ -146,5 +146,379 @@ Gateway API: http://localhost:8000
 
 ---
 
+
+Folder Structure 28/11/2025.
+└───src
+    │   Elaris.sln
+    │   inventory.proto
+    │   InventoryGrpcService.cs
+    │
+    ├───ApiGateway
+    │   │   ApiGateway.csproj
+    │   │   ApiGateway.csproj.user
+    │   │   ApiGateway.http
+    │   │   appsettings.Development.json
+    │   │   appsettings.json
+    │   │   Dockerfile
+    │   │   Program.cs
+    │   │
+    │   ├───Middlewares
+    │   │       LoggingMiddleware.cs
+    │   │       SwaggerAggregatorMiddleware.cs
+    │   │
+    │   └───Properties
+    │           launchSettings.json
+    │
+    ├───BuildingBlocks
+    │   └───Contracts
+    │       │   BuildingBlocks.Contracts.csproj
+    │       │
+    │       ├───Commands
+    │       │       OrderProcessingCommands.cs
+    │       │
+    │       ├───Events
+    │       │       BasketEvent.cs
+    │       │       InventoryEvent.cs
+    │       │       OrderEvent.cs
+    │       │       PaymentEvent.cs
+    │       │       ProductEvent.cs
+    │
+    ├───BuildingBlocks.GrpcContracts
+    │   │   BuildingBlocks.GrpcContracts.csproj
+    │   │
+    │   └───proto
+    │           inventory.proto
+    │           payment.proto
+    │
+    ├───BuildingBlocks.Infrastucture
+    │   │   BuildingBlocks.Infrastucture.csproj
+    │   │
+    │   └───Authentication
+    │           JwtAuthenticationHelper.cs
+    │
+    ├───GrpcContracts
+    │       GrpcContracts.csproj
+    │
+    ├───Services.BasketService
+    │   ├───Services.BasketService.API
+    │   │   │   appsettings.Development.json
+    │   │   │   appsettings.json
+    │   │   │   Dockerfile
+    │   │   │   Program.cs
+    │   │   │   Services.BasketService.API.csproj
+    │   │   │   Services.BasketService.API.csproj.user
+    │   │   │   Services.BasketService.API.http
+    │   │   │
+    │   │   ├───Extensions
+    │   │   │       HttpContextExtensions.cs
+    │   │   │
+    │   │   └───Properties
+    │   │           launchSettings.json
+    │   │
+    │   ├───Services.BasketService.Application
+    │   │   │   Services.BasketService.Application.csproj
+    │   │   │
+    │   │   ├───Interfaces
+    │   │   │       IBasketRepository.cs
+    │   │   │       ICatalogServiceClient.cs
+    │   │   │
+    │   │   ├───Models
+    │   │   │       Basket.cs
+    │   │   │       BasketDto.cs
+    │   │   │       BasketItem.cs
+    │   │   │       ProductDto.cs
+    │   │   │
+    │   │   └───Validators
+    │   │           BasketItemValidator.cs
+    │   │
+    │   └───Services.BasketService.Infrastructure
+    │       │   Services.BasketService.Infrastructure.csproj
+    │       │
+    │       ├───Monitoring
+    │       │       RedisMetrics.cs
+    │       │
+    │       ├───Repositories
+    │       │       BasketRepository.cs
+    │       │
+    │       └───Services
+    │               CatalogServiceClient.cs
+    │
+    ├───Services.CatalogService
+    │   │   appsettings.Development.json
+    │   │   appsettings.json
+    │   │   Dockerfile
+    │   │   Program.cs
+    │   │   Services.CatalogService.csproj
+    │   │   Services.CatalogService.csproj.user
+    │   │   Services.CatalogService.http
+    │   │
+    │   ├───Config
+    │   │       MinIOOptions.cs
+    │   │
+    │   ├───Data
+    │   │       MongoContext.cs
+    │   │       SoftDeleteCollection.cs
+    │   │
+    │   ├───Extensions
+    │   │       HttpContextExtensions.cs
+    │   │
+    │   ├───Features
+    │   │   └───Products
+    │   │       ├───ApproveProduct
+    │   │       │       ApproveProductEndpoints.cs
+    │   │       ├───CreateProduct
+    │   │       │       CreateProductEndpoint.cs
+    │   │       ├───DeleteProduct
+    │   │       │       DeleteProductEndpoint.cs
+    │   │       ├───GetAllProducts
+    │   │       │       GetAllProductsEndpoint.cs
+    │   │       ├───GetMyProducts
+    │   │       │       GetMyProductsEndpoint.cs
+    │   │       ├───GetPendingProducts
+    │   │       │       GetPendingProductsEndpoint.cs
+    │   │       ├───GetProduct
+    │   │       │       GetProductEndpoint.cs
+    │   │       ├───GetProducts
+    │   │       │       GetProductsEndpoint.cs
+    │   │       │       GetProductsQuery.cs
+    │   │       ├───RejectProduct
+    │   │       │       RejectProductEndpoint.cs
+    │   │       └───UpdateProduct
+    │   │               UpdateProductEndpoint.cs
+    │   │
+    │   ├───Models
+    │   │       CreateProductRequest.cs
+    │   │       Product.cs
+    │   │       UpdateProductRequest.cs
+    │   │
+    │   ├───Properties
+    │   │       launchSettings.json
+    │   │
+    │   └───Services
+    │           FileStorageService.cs
+    │
+    ├───Services.IdentityService
+    │   │   appsettings.Development.json
+    │   │   appsettings.json
+    │   │   Dockerfile
+    │   │   IdentityServerConfig.cs
+    │   │   Program.cs
+    │   │   Services.IdentityService.csproj
+    │   │   Services.IdentityService.csproj.user
+    │   │   Services.IdentityService.http
+    │   │
+    │   ├───Controllers
+    │   │       AuthController.cs
+    │   │       UserController.cs
+    │   │
+    │   ├───Data
+    │   │   │   AppDbContext.cs
+    │   │   │   SeedData.cs
+    │   │   │
+    │   │   ├───Entities
+    │   │   │       PayoutRequest.cs
+    │   │   │
+    │   │   └───Migrations
+    │   │           20251021074357_InitialIdentity.cs
+    │   │           20251021074357_InitialIdentity.Designer.cs
+    │   │           20251022043642_AddRefreshToken.cs
+    │   │           20251022043642_AddRefreshToken.Designer.cs
+    │   │           20251125083847_AddUserExtendedFields.cs
+    │   │           20251125083847_AddUserExtendedFields.Designer.cs
+    │   │           AppDbContextModelSnapshot.cs
+    │   │
+    │   ├───DTOs
+    │   │       UserDtos.cs
+    │   │
+    │   ├───Extensions
+    │   │       HttpContextExtensions.cs
+    │   │
+    │   ├───Properties
+    │   │       launchSettings.json
+    │   │
+    │   └───Security
+    │           Argon2PasswordHasher.cs
+    │           RsaKeyProvider.cs
+    │
+    ├───Services.InventoryService
+    │   ├───Services.InventoryService.API
+    │   │   │   appsettings.Development.json
+    │   │   │   appsettings.json
+    │   │   │   DesignTimeDbContextFactory.cs
+    │   │   │   Dockerfile
+    │   │   │   Program.cs
+    │   │   │   Services.InventoryService.API.csproj
+    │   │   │   Services.InventoryService.API.csproj.user
+    │   │   │   Services.InventoryService.API.http
+    │   │   │
+    │   │   ├───Controllers
+    │   │   │       InventoryController.cs
+    │   │   │
+    │   │   ├───Extensions
+    │   │   │       HttpContextExtensions.cs
+    │   │   │
+    │   │   ├───Grpc
+    │   │   │       InventoryGrpcService.cs
+    │   │   │
+    │   │   └───Properties
+    │   │           launchSettings.json
+    │   │
+    │   ├───Services.InventoryService.Application
+    │   │   │   AssemblyReference.cs
+    │   │   │   Services.InventoryService.Application.csproj
+    │   │   │
+    │   │   ├───Common
+    │   │   │   ├───Mappings
+    │   │   │   │       InventoryMappingConfig.cs
+    │   │   │   │
+    │   │   │   └───Models
+    │   │   │           PaginatedList.cs
+    │   │   │
+    │   │   ├───DTOs
+    │   │   │       InventoryItemDto.cs
+    │   │   │       OrderDto.cs
+    │   │   │       ProductDto.cs
+    │   │   │
+    │   │   ├───Interfaces
+    │   │   │       ICatalogServiceClient.cs
+    │   │   │       IInventoryRepository.cs
+    │   │   │       IInventoryService.cs
+    │   │   │       IUnitOfWork.cs
+    │   │   │
+    │   │   ├───Inventory
+    │   │   │   ├───Commands
+    │   │   │   │   ├───BulkUpdateInventory
+    │   │   │   │   │       BulkUpdateInventoryCommand.cs
+    │   │   │   │   │       BulkUpdateInventoryCommandHandler.cs
+    │   │   │   │   ├───ConfirmStockDeduction
+    │   │   │   │   │       ConfirmStockDeductionCommand.cs
+    │   │   │   │   │       ConfirmStockDeductionCommandHandler.cs
+    │   │   │   │   ├───CreateOrUpdateInventoryItem
+    │   │   │   │   │       CreateOrUpdateInventoryItemCommand.cs
+    │   │   │   │   │       CreateOrUpdateInventoryItemCommandHandler.cs
+    │   │   │   │   ├───DecreaseStock
+    │   │   │   │   │       DecreaseStockCommand.cs
+    │   │   │   │   │       DecreaseStockCommandHandler.cs
+    │   │   │   │   ├───IncreaseStock
+    │   │   │   │   │       IncreaseStockCommand.cs
+    │   │   │   │   │       IncreaseStockCommandHandler.cs
+    │   │   │   │   ├───ReleaseStock
+    │   │   │   │   │       ReleaseStockCommand.cs
+    │   │   │   │   │       ReleaseStockCommandHandler.cs
+    │   │   │   │   ├───ReserveStock
+    │   │   │   │   │       ReserveStockCommand.cs
+    │   │   │   │   │       ReserveStockCommandHandler.cs
+    │   │   │   │   └───SetLowStockThreshold
+    │   │   │   │           SetLowStockThresholdCommand.cs
+    │   │   │   │           SetLowStockThresholdCommandHandler.cs
+    │   │   │   │
+    │   │   │   └───Queries
+    │   │   │       ├───CheckProductsAvailability
+    │   │   │       │       CheckProductsAvailabilityQuery.cs
+    │   │   │       │       CheckProductsAvailabilityQueryHandler.cs
+    │   │   │       ├───GetInventoryByProductId
+    │   │   │       │       GetInventoryByProductIdQuery.cs
+    │   │   │       │       GetInventoryByProductIdQueryHandler.cs
+    │   │   │       ├───GetInventoryHistory
+    │   │   │       │       GetInventoryHistoryQuery.cs
+    │   │   │       │       GetInventoryHistoryQueryHandler.cs
+    │   │   │       ├───GetInventoryList
+    │   │   │       │       GetInventoryListQuery.cs
+    │   │   │       │       GetInventoryListQueryHandler.cs
+    │   │   │       ├───GetInventoryStatistics
+    │   │   │       │       GetInventoryStatisticsQuery.cs
+    │   │   │       │       GetInventoryStatisticsQueryHandler.cs
+    │   │   │       └───GetLowStockItems
+    │   │   │               GetLowStockItemsQuery.cs
+    │   │   │               GetLowStockItemsQueryHandler.cs
+    │   │   │
+    │   ├───Services.InventoryService.Domain
+    │   │   │   Services.InventoryService.Domain.csproj
+    │   │   │
+    │   │   └───Entities
+    │   │           InventoryHistory.cs
+    │   │           InventoryItem.cs
+    │   │           StockReservation.cs
+    │   │
+    │   └───Services.InventoryService.Infrastructure
+    │       │   Services.InventoryService.Infrastructure.csproj
+    │       │
+    │       ├───BackgroundServices
+    │       │       ExpiredReservationCleanupService.cs
+    │       │       ReservationTimeoutService.cs
+    │       │
+    │       ├───Consumers
+    │       │       ConfirmInventoryConsumer.cs
+    │       │       ProductCreatedConsumer.cs
+    │       │       ReleaseInventoryConsumer.cs
+    │       │       ReserveInventoryConsumer.cs
+    │       │
+    │       ├───Extensions
+    │       │       DependencyInjection.cs
+    │       │
+    │       ├───Migrations
+    │       │       20251030083514_InitialInventory.cs
+    │       │       20251030083514_InitialInventory.Designer.cs
+    │       │       20251113045114_AddReservedQuantity.cs
+    │       │       20251113045114_AddReservedQuantity.Designer.cs
+    │       │       20251127102506_AddInventoryExtendedEntitiesAndFields.cs
+    │       │       20251127102506_AddInventoryExtendedEntitiesAndFields.Designer.cs
+    │       │       InventoryDbContextModelSnapshot.cs
+    │       │
+    │       ├───Persistence
+    │       │       InventoryDbContext.cs
+    │       │
+    │       ├───Repositories
+    │       │       InventoryRepository.cs
+    │       │       UnitOfWork.cs
+    │       │
+    │       └───Services
+    │               CatalogServiceClient.cs
+    │               InventoryService.cs
+    │
+    ├───Services.InventoryService.Grpc
+    │   │   appsettings.Development.json
+    │   │   appsettings.json
+    │   │   Program.cs
+    │   │   Services.InventoryService.Grpc.csproj
+    │   │   Services.InventoryService.Grpc.csproj.user
+    │   │
+    │   ├───Properties
+    │   │       launchSettings.json
+    │   │
+    │   ├───Protos
+    │   │       inventory.proto
+    │   │
+    │   └───Services
+    │           InventoryGrpcService.cs
+    │
+    ├───Services.InventoryService.SDK
+    │   │   ServiceCollectionExtension.cs
+    │   │   Services.InventoryService.SDK.csproj
+    │
+    └───Services.OrderService
+        ├───Services.OrderService.API
+        │   │   appsettings.Development.json
+        │   │   appsettings.json
+        │   │   DesignTimeDbContextFactory.cs
+        │   │   Dockerfile
+        │   │   Program.cs
+        │   │   Services.OrderService.API.csproj
+        │   │   Services.OrderService.API.csproj.user
+        │   │   Services.OrderService.API.http
+        │   │
+        │   ├───Controllers
+        │   │       OrdersController.cs
+        │   │
+        │   ├───Extensions
+        │   │       HttpContextExtensions.cs
+        │   │
+        │   ├───Middleware
+        │   │       ExceptionMiddleware.cs
+        │   │
+        │   └───Properties
+        │           launchSettings.json
+
+
 ## 🪪 License
 MIT License © 2025 — Elaris Marketplace Team
