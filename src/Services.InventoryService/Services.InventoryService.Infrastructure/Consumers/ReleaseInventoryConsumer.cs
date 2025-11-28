@@ -10,15 +10,18 @@ namespace Services.InventoryService.Infrastructure.Consumers
     public class ReleaseInventoryConsumer : IConsumer<ReleaseInventoryCommand>
     {
         private readonly IUnitOfWork _uow;
+        private readonly IInventoryService _service;
         private readonly ReservationTimeoutService _timeoutService;
         private readonly ILogger<ReleaseInventoryConsumer> _logger;
 
         public ReleaseInventoryConsumer(
             IUnitOfWork uow,
+            IInventoryService service,
             ReservationTimeoutService timeoutService,
             ILogger<ReleaseInventoryConsumer> logger)
         {
             _uow = uow;
+            _service = service;
             _timeoutService = timeoutService;
             _logger = logger;
         }
@@ -33,13 +36,17 @@ namespace Services.InventoryService.Infrastructure.Consumers
 
             foreach (var item in cmd.Items)
             {
-                var success = await _uow.Inventory.ReleaseReservationAsync(item.ProductId, item.Quantity, ct);
-                if (!success)
+                try
+                {
+                    await _service.ReleaseStockAsync(cmd.OrderId, item.ProductId, item.Quantity, context.CancellationToken);
+
+                    _logger.LogInformation("✅ Released: {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
+                }
+                catch (Exception ex)
                 {
                     _logger.LogWarning("❌ Stock Released error for {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
                     return;
                 }
-                _logger.LogInformation("✅ Released: {ProductId} x{Quantity} for Order {OrderId}", item.ProductId, item.Quantity, cmd.OrderId);
             }
 
             _logger.LogInformation("✅ Released inventory for Order {OrderId}", cmd.OrderId);

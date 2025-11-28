@@ -1,7 +1,7 @@
 ﻿
 using Grpc.Core;
 using MediatR;
-using Services.InventoryService.Application.Inventory.Queries.CheckStock;
+using Services.InventoryService.Application.Inventory.Queries.CheckProductsAvailability;
 using static Services.InventoryService.InventoryService;
 
 
@@ -25,7 +25,7 @@ namespace Services.InventoryService.API.Grpc
             ServerCallContext context)
         {
             // SYNC CALL - SIÊU NHANH, KHÔNG BLOCK THREAD
-            var query = new CheckStockQuery(request.ProductId, request.Quantity);
+            var query = new CheckProductsAvailabilityQuery(request.ProductId, request.Quantity);
             var result = _mediator.Send(query, context.CancellationToken).GetAwaiter().GetResult();
 
             return Task.FromResult(new CheckStockResponse

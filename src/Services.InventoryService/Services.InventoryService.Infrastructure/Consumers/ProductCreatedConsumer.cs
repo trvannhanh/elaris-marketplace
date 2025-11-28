@@ -27,14 +27,27 @@ namespace Services.InventoryService.Infrastructure.Consumers
             var inventory = new InventoryItem
             {
                 ProductId = message.ProductId,
-                AvailableStock = 10,
-                LastUpdated = DateTime.UtcNow
+                SellerId = message.SellerId,
+                Quantity = message.Quantity,
+                ReservedQuantity = 0,
+                AvailableQuantity = message.Quantity,
+                LowStockThreshold = message.LowStockThreshold,
+                Status = DetermineStatus(message.Quantity, message.LowStockThreshold),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             await _uow.Inventory.AddAsync(inventory, ct);
             await _uow.SaveChangesAsync(ct);
 
             _logger.LogInformation("✅ Inventory created for ProductId={Id}", message.ProductId);
+        }
+
+        private static InventoryStatus DetermineStatus(int quantity, int threshold)
+        {
+            if (quantity == 0) return InventoryStatus.OutOfStock;
+            if (quantity <= threshold) return InventoryStatus.LowStock;
+            return InventoryStatus.InStock;
         }
     }
 }

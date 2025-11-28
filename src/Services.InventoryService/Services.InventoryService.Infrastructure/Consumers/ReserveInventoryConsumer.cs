@@ -11,12 +11,14 @@ namespace Services.InventoryService.Infrastructure.Consumers
     {
         private readonly IUnitOfWork _uow;
         private readonly IPublishEndpoint _publisher;
+        private readonly IInventoryService _service;
         private readonly ReservationTimeoutService _timeoutService;
         private readonly ILogger<ReserveInventoryConsumer> _logger;
 
-        public ReserveInventoryConsumer(IUnitOfWork uow, IPublishEndpoint publisher, ReservationTimeoutService timeoutService, ILogger<ReserveInventoryConsumer> logger)
+        public ReserveInventoryConsumer(IUnitOfWork uow, IInventoryService service, IPublishEndpoint publisher, ReservationTimeoutService timeoutService, ILogger<ReserveInventoryConsumer> logger)
         {
             _uow = uow;
+            _service = service;
             _publisher = publisher;
             _timeoutService = timeoutService;
             _logger = logger;
@@ -30,8 +32,16 @@ namespace Services.InventoryService.Infrastructure.Consumers
 
             foreach (var item in cmd.Items)
             {
-                var success = await _uow.Inventory.TryReserveStockAsync(item.ProductId, item.Quantity, ct);
-                if (!success)
+                try
+                {
+                    await _service.ReserveStockAsync(cmd.OrderId, item.ProductId, item.Quantity, context.CancellationToken);
+
+                    // THÊM VÀO QUEUE ĐỂ TỰ ĐỘNG HẾT HẠN SAU 5 PHÚT
+                    _timeoutService.AddReservation(cmd.OrderId, item.ProductId, item.Quantity, TimeSpan.FromMinutes(5));
+
+                    reservedItems.Add(new OrderItemEntry(item.ProductId, item.Quantity));
+                }
+                catch (Exception ex)
                 {
                     await context.Publish(new InventoryReserveFailedEvent(
                         cmd.OrderId,
@@ -39,13 +49,9 @@ namespace Services.InventoryService.Infrastructure.Consumers
                         DateTime.UtcNow), ct);
 
                     _logger.LogWarning("❌ Stock rejected for Order {OrderId}: {ProductId}", cmd.OrderId, item.ProductId);
-                    return;
+
                 }
-
-                // THÊM VÀO QUEUE ĐỂ TỰ ĐỘNG HẾT HẠN SAU 5 PHÚT
-                _timeoutService.AddReservation(cmd.OrderId, item.ProductId, item.Quantity, TimeSpan.FromMinutes(5));
-
-                reservedItems.Add(new OrderItemEntry(item.ProductId, item.Quantity));
+  
             }
 
             await _uow.SaveChangesAsync(ct);

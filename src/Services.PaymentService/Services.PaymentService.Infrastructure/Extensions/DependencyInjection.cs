@@ -5,6 +5,7 @@ using Services.PaymentService.Application.Interfaces;
 using Services.PaymentService.Infrastructure.Consumers;
 using Services.PaymentService.Infrastructure.Persistence;
 using Services.PaymentService.Infrastructure.Repositories;
+using Services.PaymentService.Infrastructure.Services;
 
 namespace Services.PaymentService.Infrastructure.Extensions
 {
@@ -16,6 +17,8 @@ namespace Services.PaymentService.Infrastructure.Extensions
             services.AddDbContext<PaymentDbContext>(opt => opt.UseNpgsql(conn));
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IPaymentGateway, PaymentGatewayService>();
+            services.AddScoped<IOrderServiceClient, OrderServiceClient>();
 
             // MassTransit + consumer
             services.AddMassTransit(x =>

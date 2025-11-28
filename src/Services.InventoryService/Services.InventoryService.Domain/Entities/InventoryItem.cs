@@ -5,13 +5,25 @@ namespace Services.InventoryService.Domain.Entities
     public class InventoryItem
     {
         public Guid Id { get; set; }
-        public string ProductId { get; set; } = default!;
-        public int AvailableStock { get; set; }
-        // Tổng số lượng đang được giữ chỗ (đặt hàng nhưng chưa xác nhận)
+        public string ProductId { get; set; } = string.Empty;
+        public string SellerId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
         public int ReservedQuantity { get; set; }
-        public DateTime LastUpdated { get; set; }
-
-        // EffectiveStock computed property — không lưu DB, chỉ giúp tính nhanh
-        public int EffectiveStock => AvailableStock - ReservedQuantity;
+        public int AvailableQuantity { get; set; }
+        public int LowStockThreshold { get; set; } = 10;
+        public InventoryStatus Status { get; set; }
+        public DateTime? LastRestockDate { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
+
+    public enum InventoryStatus
+    {
+        InStock,
+        LowStock,
+        OutOfStock,
+        Discontinued
+    }
+
+    
 }

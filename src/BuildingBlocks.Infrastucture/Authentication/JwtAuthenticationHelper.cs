@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace BuildingBlocks.Infrastucture.Authentication
@@ -38,6 +39,7 @@ namespace BuildingBlocks.Infrastucture.Authentication
                 .AddJwtBearer(options =>
                 {
                     options.Authority = authorityUrl;
+                    options.Authority = authorityUrl;
                     options.Audience = audience;
                     options.RequireHttpsMetadata = false;
 
@@ -54,7 +56,7 @@ namespace BuildingBlocks.Infrastucture.Authentication
                         ValidateIssuerSigningKey = true,
                         IssuerSigningKeys = oidcConfig.SigningKeys,
                         NameClaimType = "name",
-                        RoleClaimType = "role",
+                        RoleClaimType = ClaimTypes.Role,
                         ClockSkew = TimeSpan.FromMinutes(5)
                     };
 
@@ -139,32 +141,59 @@ namespace BuildingBlocks.Infrastucture.Authentication
         }
 
         /// <summary>
-        /// Thêm authorization policies chuẩn
+        /// Thêm authorization policies 
         /// </summary>
-        public static IServiceCollection AddStandardAuthorizationPolicies(this IServiceCollection services)
+        public static IServiceCollection AddAuthorizationPolicies(this IServiceCollection services)
         {
             services.AddAuthorization(options =>
             {
-                // Policy: Chỉ Admin
-                options.AddPolicy("AdminOnly", policy =>
+                // ==================== BUYER POLICIES ====================
+                options.AddPolicy("Buyer", policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole("buyer");
+                    policy.RequireClaim("scope", "elaris.api");
+                });
+
+                // ==================== SELLER POLICIES ====================
+                options.AddPolicy("Seller", policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole("seller");
+                    policy.RequireClaim("scope", "elaris.api");
+                });
+
+                // ==================== ADMIN POLICIES ====================
+                options.AddPolicy("Admin", policy =>
                 {
                     policy.RequireAuthenticatedUser();
                     policy.RequireRole("admin");
                     policy.RequireClaim("scope", "elaris.api");
                 });
 
-                // Policy: User hoặc Admin
-                options.AddPolicy("UserOrAdmin", policy =>
+                // ==================== COMBINED POLICIES ====================
+
+                // Buyer hoặc Seller (đăng nhập rồi)
+                options.AddPolicy("BuyerOrSeller", policy =>
                 {
                     policy.RequireAuthenticatedUser();
-                    policy.RequireRole("user", "admin");
+                    policy.RequireRole("buyer", "seller");
                     policy.RequireClaim("scope", "elaris.api");
                 });
 
-                // Policy: Chỉ cần có scope
-                options.AddPolicy("ApiAccess", policy =>
+                // Seller hoặc Admin
+                options.AddPolicy("SellerOrAdmin", policy =>
                 {
                     policy.RequireAuthenticatedUser();
+                    policy.RequireRole("seller", "admin");
+                    policy.RequireClaim("scope", "elaris.api");
+                });
+
+                // Bất kỳ ai đăng nhập (3 roles)
+                options.AddPolicy("Authenticated", policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole("buyer", "seller", "admin");
                     policy.RequireClaim("scope", "elaris.api");
                 });
             });

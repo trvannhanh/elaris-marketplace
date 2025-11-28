@@ -1,20 +1,21 @@
 ﻿
-using BuildingBlocks.Contracts.DTOs;
 using Services.InventoryService.Domain.Entities;
 
 namespace Services.InventoryService.Application.Interfaces
 {
     public interface IInventoryRepository
     {
-        Task<InventoryItem?> GetByProductIdAsync(string productId, CancellationToken ct = default);
-        Task<bool> HasStockAsync(string productId, int quantity, CancellationToken ct = default);
-        Task<OrderDto?> FetchOrderDetails(Guid orderId, CancellationToken ct = default);
-
-        Task DecreaseStockAsync(string productId, int quantity, CancellationToken ct = default);
-        Task AddAsync(InventoryItem inventory, CancellationToken ct = default);
-
-        Task<bool> TryReserveStockAsync(string productId, int quantity, CancellationToken ct);
-        Task<bool> ReleaseReservationAsync(string productId, int quantity, CancellationToken ct);
-        Task ConfirmReservationAsync(string productId, int quantity, CancellationToken ct);
+        Task<InventoryItem?> GetByProductIdAsync(string productId, CancellationToken ct);
+        Task<List<InventoryItem>> GetAllAsync(CancellationToken ct);
+        IQueryable<InventoryItem> GetQueryable();
+        IQueryable<InventoryHistory> GetHistoryQueryable();
+        Task AddAsync(InventoryItem item, CancellationToken ct);
+        Task UpdateAsync(InventoryItem item, CancellationToken ct);
+        Task AddHistoryAsync(InventoryHistory history, CancellationToken ct);
+        Task AddReservationAsync(StockReservation reservation, CancellationToken ct);
+        Task UpdateReservationStatusAsync(Guid orderId, ReservationStatus status, CancellationToken ct);
+        Task<StockReservation?> GetReservationByOrderIdAsync(Guid orderId, CancellationToken ct);
+        Task<List<StockReservation>> GetActiveReservationsAsync(string productId, CancellationToken ct);
+        Task<List<StockReservation>> GetExpiredReservationsAsync(DateTime expirationTime, CancellationToken ct);
     }
 }

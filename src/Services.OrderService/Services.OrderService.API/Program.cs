@@ -1,5 +1,4 @@
-﻿
-using OpenTelemetry.Metrics;
+﻿using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Microsoft.EntityFrameworkCore;
@@ -12,14 +11,10 @@ using Mapster;
 using Services.OrderService.Application.Common.Mappings;
 using MapsterMapper;
 using Services.OrderService.API.Middleware;
-using MassTransit;
-using Polly.Extensions.Http;
-using Polly;
 using Services.InventoryService;
 using Grpc.Core;
 using Services.PaymentService;
 using OpenTelemetry.Logs;
-using Microsoft.Extensions.DependencyInjection;
 using BuildingBlocks.Infrastucture.Authentication;
 using Microsoft.OpenApi;
 using Services.OrderService.Infrastructure.Services;

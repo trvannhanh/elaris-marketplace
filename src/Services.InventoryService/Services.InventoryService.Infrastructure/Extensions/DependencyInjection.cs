@@ -7,7 +7,9 @@ using Services.InventoryService.Infrastructure.BackgroundServices;
 using Services.InventoryService.Infrastructure.Consumers;
 using Services.InventoryService.Infrastructure.Persistence;
 using Services.InventoryService.Infrastructure.Repositories;
+using Services.InventoryService.Infrastructure.Services;
 using System.Reflection;
+using InventoryServiceImpl = Services.InventoryService.Infrastructure.Services.InventoryService;
 
 
 namespace Services.InventoryService.Infrastructure.Extensions
@@ -22,6 +24,8 @@ namespace Services.InventoryService.Infrastructure.Extensions
 
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IInventoryRepository, InventoryRepository>();
+            services.AddScoped<IInventoryService, InventoryServiceImpl>();
+            services.AddScoped<ICatalogServiceClient, CatalogServiceClient>();
 
             // Đăng ký Singleton để Consumer có thể inject
             services.AddSingleton<ReservationTimeoutService>();

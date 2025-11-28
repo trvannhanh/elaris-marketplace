@@ -8,66 +8,108 @@ namespace Services.BasketService.Infrastructure.Repositories
 {
     public class BasketRepository : IBasketRepository
     {
+        private readonly IConnectionMultiplexer _redis;
         private readonly IDatabase _db;
-        private readonly TimeSpan BasketTTL = TimeSpan.FromDays(7);
 
         public BasketRepository(IConnectionMultiplexer redis)
         {
-            _db = redis.GetDatabase();
+            _redis = redis;
+            _db = _redis.GetDatabase();
         }
 
-        private string Key(string userId) => $"basket:{userId}";
+        private string GetBasketKey(string userId) => $"basket:{userId}";
 
-        public async Task<List<BasketItem>> GetBasketAsync(string userId, CancellationToken ct = default)
+        public async Task<IEnumerable<BasketItem>> GetBasketAsync(string userId, CancellationToken ct = default)
         {
-            var hashKey = Key(userId);
-            var entries = await _db.HashGetAllAsync(hashKey);
+            var key = GetBasketKey(userId);
+            var data = await _db.StringGetAsync(key);
 
-            if (entries.Length == 0)
-            {
-                RedisMetrics.RedisMissCounter.Inc();
-                return new List<BasketItem>();
-            }
+            if (data.IsNullOrEmpty)
+                return Enumerable.Empty<BasketItem>();
 
+            return JsonSerializer.Deserialize<List<BasketItem>>(data!) ?? new List<BasketItem>();
+        }
 
-            RedisMetrics.RedisHitCounter.Inc();
-
-            //Refresh TTL khi user truy cập giỏ hàng
-            await _db.KeyExpireAsync(hashKey, BasketTTL);
-
-            var items = entries.Select(e =>
-                JsonSerializer.Deserialize<BasketItem>(e.Value!)!).ToList();
-
-            // refresh TTL on read
-            await _db.KeyExpireAsync(hashKey, BasketTTL);
-
-            return items;
+        public async Task<BasketItem?> GetItemAsync(string userId, string productId, CancellationToken ct = default)
+        {
+            var items = await GetBasketAsync(userId, ct);
+            return items.FirstOrDefault(i => i.ProductId == productId);
         }
 
         public async Task AddOrUpdateItemAsync(string userId, BasketItem item, CancellationToken ct = default)
         {
-            var hashKey = Key(userId);
+            var key = GetBasketKey(userId);
+            var items = (await GetBasketAsync(userId, ct)).ToList();
 
-            // Save item
-            await _db.HashSetAsync(hashKey,
-                item.ProductId,
-                JsonSerializer.Serialize(item));
+            var existingItem = items.FirstOrDefault(i => i.ProductId == item.ProductId);
 
-            // Refresh TTL khi user thêm/cập nhật item
-            await _db.KeyExpireAsync(hashKey, BasketTTL);
+            if (existingItem != null)
+            {
+                // Update existing item
+                existingItem.Quantity = item.Quantity;
+                existingItem.Price = item.Price;
+                existingItem.Name = item.Name;
+                existingItem.ImageUrl = item.ImageUrl;
+                existingItem.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // Add new item
+                item.AddedAt = DateTime.UtcNow;
+                item.UpdatedAt = DateTime.UtcNow;
+                items.Add(item);
+            }
+
+            var json = JsonSerializer.Serialize(items);
+            await _db.StringSetAsync(key, json, TimeSpan.FromDays(7)); // TTL 7 days
         }
 
         public async Task<bool> RemoveItemAsync(string userId, string productId, CancellationToken ct = default)
         {
-            var key = Key(userId);
-            await _db.HashDeleteAsync(key, productId);
+            var key = GetBasketKey(userId);
+            var items = (await GetBasketAsync(userId, ct)).ToList();
+
+            var item = items.FirstOrDefault(i => i.ProductId == productId);
+            if (item == null)
+                return false;
+
+            items.Remove(item);
+
+            if (items.Any())
+            {
+                var json = JsonSerializer.Serialize(items);
+                await _db.StringSetAsync(key, json, TimeSpan.FromDays(7));
+            }
+            else
+            {
+                await _db.KeyDeleteAsync(key);
+            }
+
             return true;
         }
 
-        public async Task<bool> ClearBasketAsync(string userId, CancellationToken ct = default)
+        public async Task ClearBasketAsync(string userId, CancellationToken ct = default)
         {
-            var key = Key(userId);
-            return await _db.KeyDeleteAsync(key);
+            var key = GetBasketKey(userId);
+            await _db.KeyDeleteAsync(key);
+        }
+
+        public async Task<int> GetBasketCountAsync(string userId, CancellationToken ct = default)
+        {
+            var items = await GetBasketAsync(userId, ct);
+            return items.Sum(i => i.Quantity);
+        }
+
+        public async Task<decimal> GetBasketTotalAsync(string userId, CancellationToken ct = default)
+        {
+            var items = await GetBasketAsync(userId, ct);
+            return items.Sum(i => i.Price * i.Quantity);
+        }
+
+        public async Task<bool> BasketExistsAsync(string userId, CancellationToken ct = default)
+        {
+            var key = GetBasketKey(userId);
+            return await _db.KeyExistsAsync(key);
         }
     }
 }
