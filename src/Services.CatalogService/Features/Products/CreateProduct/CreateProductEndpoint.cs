@@ -50,8 +50,11 @@ namespace Services.CatalogService.Features.Products.CreateProduct
 
                 await publisher.Publish(new ProductCreatedEvent(
                     product.Id!,
-                    product.Name,
-                    product.Price,
+                    product.SellerId,
+                    //product.Name,
+                    request.Quantity,
+                    request.LowStockThreshold,
+                    //product.Price,
                     product.CreatedAt
                 ));
 

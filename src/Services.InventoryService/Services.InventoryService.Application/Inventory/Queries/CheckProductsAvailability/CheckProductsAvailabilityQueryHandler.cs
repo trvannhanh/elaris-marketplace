@@ -37,7 +37,7 @@ namespace Services.InventoryService.Application.Inventory.Queries.CheckProductsA
             {
                 InStock = inStock,
                 AvailableStock = available,
-                Message = isAvailable ? null : $"Chỉ còn {available} sản phẩm (yêu cầu {request.Quantity})"
+                Message = isAvailable ? $"Đủ lượng tồn kho sản phẩm yêu cầu (yêu cầu {request.Quantity}), tồn kho: {available}" : $"Chỉ còn {available} sản phẩm (yêu cầu {request.Quantity})"
             };
         }
     }

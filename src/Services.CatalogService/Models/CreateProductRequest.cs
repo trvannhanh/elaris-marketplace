@@ -5,6 +5,8 @@
         string Description,
         decimal Price,
         string Category,
+        int Quantity,
+        int LowStockThreshold,
         IFormFile ProductFile,           // File sản phẩm (zip, pdf, video...)
         IFormFile? PreviewImage = null   // Ảnh xem trước
     );

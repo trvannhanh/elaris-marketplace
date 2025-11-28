@@ -26,6 +26,19 @@ namespace Services.CatalogService.Extensions
         }
 
         /// <summary>
+        /// Lấy name của user 
+        /// </summary>
+        /// <exception cref="UnauthorizedAccessException">Nếu không có name</exception>
+        public static string GetName(this HttpContext ctx)
+        {
+            var roleClaim = ctx.User.FindFirst(ClaimTypes.Role)
+                         ?? ctx.User.FindFirst("name");
+
+            return roleClaim?.Value
+                   ?? throw new UnauthorizedAccessException("Missing name in token");
+        }
+
+        /// <summary>
         /// Lấy danh sách tất cả roles của user (hỗ trợ multiple roles)
         /// </summary>
         public static IEnumerable<string> GetRoles(this HttpContext ctx)
